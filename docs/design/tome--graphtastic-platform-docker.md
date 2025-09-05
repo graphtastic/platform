@@ -1,11 +1,19 @@
 # The Graphtastic Platform Tome (Declarative Federation Edition)
 
-- **Version:** 8.2
+- **Version:** 8.3
 - **Date:** September 5, 2025
 - **Status:** Approved Architectural Blueprint
 
 ### **Document Changelog**
 
+*   **v8.3:**
+    *   **Enhanced Governance & Tooling:** Introduced the `tools-subgraph-core` repository to centralize subgraph tooling, CI workflows, and `Makefile` targets, promoting ecosystem-wide consistency.
+    *   **Formalized Architectural Precepts:** Added a new section (Sec 3.4) to codify the core design principles of the platform (e.g., "Hubs Assemble, Spokes Provide," "Subgraphs Are Standalone").
+    *   **Standardized CI/CD Strategy:** The governance model (Sec 8.5) now specifies GitHub Reusable Workflows as the standard for consistent, centralized, and secure CI pipelines.
+    *   **Defined Secret Management:** Added a new section (Sec 8.6) detailing a progressive, environment-aware secret management strategy using `.env` files and CI integration, designed to be secure and developer-friendly.
+    *   **Developer-Centric Data Persistence:** Introduced a configurable data persistence model (Sec 8.7) allowing developers to switch between local directory bind mounts (for introspection) and named volumes via an environment variable.
+    *   **Refined Conventions:** Renamed the dependency directory from `./vendor` to the more intuitive `./.deps` to reduce confusion. Added `template-*` repositories to the official naming conventions.
+    *   **Clarified Advanced Patterns:** Added a new section (Sec 2.4) to acknowledge advanced federation patterns like inter-subgraph type extension, positioning them as a future capability.
 *   **v8.2:**
     *   **Restructured for Clarity:** Consolidated all foundational technology explanations (Federation, Mesh, Hive) into a single, comprehensive Section 2.0. This removes redundancy and improves the logical flow. Section 3.0 is now exclusively focused on the Graphtastic architectural model.
     *   **Integrated Architectural Rationale:** Added a new subsection to the Hive Platform overview (Sec 2.3) detailing the polyglot persistence layer and the explicit operational trade-offs of the self-hosted model, restoring key context from prior research.
@@ -97,6 +105,28 @@ The Hive platform leverages a **polyglot persistence layer**, using the optimal 
 
 While this microservice architecture provides significant scalability and resilience, it introduces non-trivial operational complexity. A team choosing to run this Spoke must be prepared to deploy, monitor, and maintain a distributed system with multiple stateful services. This operational overhead is a critical architectural trade-off.
 
+#### **2.4 Advanced Federation Patterns: A Forward-Looking View**
+
+The core of federation is composing independent graphs. The most advanced form of this is when one subgraph *extends* a type that is owned by another subgraph. For example:
+
+```graphql
+# In subgraph-users (owns the User type)
+type User @key(fields: "id") {
+  id: ID!
+  name: String
+}
+
+# In subgraph-reviews (extends the User type)
+extend type User @key(fields: "id") {
+  id: ID! @external
+  reviews: [Review!]
+}
+```
+
+In this pattern, the Hive Gateway fulfills the contract by first fetching the `id` from `subgraph-users` and then passing it to `subgraph-reviews`. The subgraphs themselves remain isolated and have no direct network dependency on each other.
+
+While the Graphtastic architecture is fully compatible with this powerful pattern, our initial architectural precepts (see Sec 3.4) recommend a "flat" dependency model to start. This reserves the use of inter-subgraph extensions for when a clear, bounded-context relationship emerges, preventing premature complexity.
+
 ---
 
 ### **3.0 The Graphtastic Architectural Model**
@@ -105,11 +135,12 @@ The Graphtastic Platform is founded on a modular, multi-repo architecture design
 
 #### **3.1 The "Hub and Spoke" Model**
 
-The architecture separates concerns into three distinct repository types, creating a clear and scalable ecosystem. This model allows for both the development of standalone, reusable components (Spokes) and the composition of complex, use-case-specific applications (Hubs), all managed by a common set of versioned tools.
+The architecture separates concerns into four distinct repository types, creating a clear and scalable ecosystem. This model allows for both the development of standalone, reusable components (Spokes) and the composition of complex, use-case-specific applications (Hubs), all managed by a common set of versioned tools.
 
 *   **Spokes (`subgraph-*`, `federated-graph-core`):** These are self-contained, runnable, and independently versionable components. Each Spoke repository is the single source of truth for a specific business capability or technical function.
 *   **Hubs (`supergraph-*`):** These are lightweight assemblers. A Hub repository's sole purpose is to define the composition of a specific supergraph by declaring a list of Spoke dependencies and their versions in a manifest file.
-*   **Tools (`tools-*`):** These are special-purpose, reusable components that provide the orchestration logic for Hubs, ensuring a consistent and updatable management process.
+*   **Tools (`tools-*`):** These are special-purpose, reusable components that provide the orchestration and governance logic for Hubs and Spokes, ensuring a consistent and updatable management process.
+*   **Templates (`template-*`):** These are boilerplate repositories that serve as the starting point for creating new Hubs or Spokes, ensuring they adhere to platform conventions from day one.
 
 **Figure 3.1: The "Hub and Spoke" Architectural Model**
 
@@ -120,14 +151,16 @@ graph TD
     end
 
     subgraph "Reusable Component Repositories (Spokes & Tools)"
-        Tools[<b>tools-docker-compose</b><br/><i>Provides the 'how'</i>]
-        Core[<b>federated-graph-core</b><br/><i>Provides the core services</i>]
-        SSC[<b>subgraph-software-supply-chain</b><br/><i>Provides a data capability</i>]
+        ToolsD[<b>tools-docker-compose</b><br/><i>runtime orchestration</i>]
+        ToolsS[<b>tools-subgraph-core</b><br/><i>governance & CI</i>]
+        Core[<b>federated-graph-core</b><br/><i>core services</i>]
+        SSC[<b>subgraph-software-supply-chain</b><br/><i>data</i>]
     end
     
-    Hub -- "Manifest lists dependency on" --> Tools
+    Hub -- "Manifest lists dependency on" --> ToolsD
     Hub -- "Manifest lists dependency on" --> Core
     Hub -- "Manifest lists dependency on" --> SSC
+    SSC -- "Dev dependency on" --> ToolsS
 ```
 
 #### **3.2 The Developer & Governance Toolkit**
@@ -138,7 +171,7 @@ In addition to the core runtime components, the Graphtastic platform leverages s
 | :------------------ | :------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **GraphQL Inspector** | **Automated Governance**                                       | The engine for the `make validate-schemas` command. It validates schemas against a centralized ruleset to enforce federation readiness (e.g., presence of `@key` directives) and detects breaking changes before they are committed. |
 | **GraphQL Codegen** | **Developer Productivity**                                     | A recommended tool for consumers of the supergraph. It can be pointed at the Hive Registry's CDN endpoint to generate type-safe client-side code (e.g., TypeScript types and React hooks).                                     |
-| **GraphQL Yoga**    | **Custom Subgraph Implementation**                             | The reference server for building custom, "greenfield" subgraphs. A `subgraph-yoga-*` Spoke provides a template for creating a high-performance, extensible GraphQL service when a custom business logic layer is required.       |
+| **GraphQL Yoga**    | **Custom Subgraph Implementation**                             | The reference server for building custom, "greenfield" subgraphs. A `template-subgraph` provides a starting point for creating a high-performance, extensible GraphQL service when a custom business logic layer is required.       |
 
 #### **3.3 Architectural Conventions**
 
@@ -148,15 +181,20 @@ To ensure consistency and clarity across the ecosystem, all repositories and fil
 *   **`supergraph-{name}`:** A Hub repository that assembles a complete supergraph (e.g., `supergraph-cncf`).
 *   **`subgraph-{name}`:** A Spoke repository containing a self-contained subgraph service (e.g., `subgraph-software-supply-chain`).
 *   **`federated-graph-core`:** The special-purpose Spoke repository that contains the core platform services.
-*   **`tools-{type}`:** A repository containing reusable orchestration logic (e.g., `tools-docker-compose`).
+*   **`tools-{type}`:** A repository containing reusable orchestration or governance logic (e.g., `tools-docker-compose`, `tools-subgraph-core`).
+*   **`template-{type}`:** A repository template for bootstrapping new components (e.g., `template-supergraph`, `template-subgraph`).
 
-##### **Schema Filenaming Convention**
-*   **`{name}.graphql`:** The base GraphQL schema for a service, where `{name}` is derived from the repository name.
-*   **`{name}.federation.graphql`:** The extension file containing only federation directives.
-*   
+#### **3.4 Architectural Precepts**
+
+All development within the Graphtastic ecosystem must adhere to the following principles. These precepts are designed to maintain the architectural integrity of the platform, ensuring it remains scalable, maintainable, and resilient.
+
+1.  **Hubs Assemble, Spokes Provide:** Hubs (`supergraph-*`) contain no business logic; their sole purpose is to declare dependencies in their manifest. Spokes (`subgraph-*`) are the single source of truth for a business capability.
+2.  **Core Services Are Agnostic:** Core components (`federated-graph-core`, `tools-*`) MUST NEVER depend on a specific business-domain subgraph. This ensures they remain generic, reusable, and focused on their core platform function.
+3.  **Subgraphs Are Standalone:** Every Spoke MUST be runnable in isolation via its own `compose.yaml`. This is a critical requirement for independent development, testing, and debugging, preventing hidden dependencies between components.
+4.  **Communicate Through the Supergraph:** Subgraphs MUST NOT communicate directly with each other over the network. Composition is achieved *only* through GraphQL Federation, with the query plan being executed by the Gateway. This enforces a clean architectural boundary and leverages the full power of the federated model.
+5.  **Version with Intent:** All components SHOULD use Semantic Versioning to communicate the nature of their changes. Pinning to branches or SHAs in a Hub's manifest is for development purposes only; production releases MUST pin to specific, immutable version tags.
 
 ---
-
 
 ### **4.0 The Runtime Architecture: A System of Coordinated Projects**
 
@@ -166,7 +204,7 @@ The Graphtastic Platform's runtime is not a monolithic application but a system 
 
 A core principle of the runtime architecture is the strict isolation between logical components. When the `Makefile` executes `make up`, it does not launch a single, massive Docker Compose application. Instead, it iterates through the declared dependencies and launches each one as a distinct **Docker Compose project**, using the `-p` (or `--project-name`) flag.
 
-For example, the command `docker compose -p supergraph-cncf-core -f ./vendor/federated-graph-core/compose.yaml up -d` creates a set of containers (e.g., `supergraph-cncf-core-gateway-1`) and networks that are logically namespaced to the `supergraph-cncf-core` project. This prevents resource collisions (e.g., two components trying to create a network named `default`) and allows a developer to start, stop, or view logs for a single component project without affecting any others.
+For example, the command `docker compose -p supergraph-cncf-core -f ./.deps/federated-graph-core/compose.yaml up -d` creates a set of containers (e.g., `supergraph-cncf-core-gateway-1`) and networks that are logically namespaced to the `supergraph-cncf-core` project. This prevents resource collisions (e.g., two components trying to create a network named `default`) and allows a developer to start, stop, or view logs for a single component project without affecting any others.
 
 #### **4.2 The Shared Communication Bus: The External Network**
 
@@ -257,18 +295,18 @@ The Graphtastic Platform's architecture is optimized for a productive and transp
 
 #### **5.1 Onboarding: From Zero to Running Supergraph**
 
-The onboarding process for any engineer joining a project built on this platform is streamlined into two simple commands:
+The onboarding process for any engineer joining a project built on this platform is streamlined. It begins by creating a new repository from a `template-supergraph` on GitHub, followed by two simple commands:
 
 1.  `git clone https://github.com/graphtastic/supergraph-cncf.git`
 2.  `cd supergraph-cncf && make up`
 
-The `make up` command is the single entry point. It automatically triggers the `deps` target, which performs a one-time setup of the local development environment by fetching all necessary component repositories. The result is a complete, running supergraph, assembled and launched with no manual configuration required.
+The `make up` command automatically triggers the `deps` target, which performs a one-time setup of the local development environment by fetching all necessary component repositories. The result is a complete, running supergraph, assembled and launched with no manual configuration required.
 
 #### **5.2 Dependency Management: The "Go-Style Vendoring" Pattern**
 
-The architecture adopts a dependency management pattern popularized by the Go language. Instead of treating dependencies as opaque, immutable packages, the `make deps` command performs a full `git clone` of each component listed in the manifest into a local `./vendor` directory.
+The architecture adopts a dependency management pattern popularized by the Go language. Instead of treating dependencies as opaque, immutable packages, the `make deps` command performs a full `git clone` of each component listed in the manifest into a local `./.deps` directory.
 
-This is a critical design choice: the `./vendor` directory contains **complete, mutable Git repositories**, synchronized to the specific version (tag, branch, or commit SHA) declared in the `graphtastic.deps.yml` manifest. This is not a simple file copy; the entire Git history of each component is available locally.
+This is a critical design choice: the `./.deps` directory contains **complete, mutable Git repositories**, synchronized to the specific version (tag, branch, or commit SHA) declared in the `graphtastic.deps.yml` manifest. The entire Git repo including the history of each component is available locally.
 
 This approach provides two key benefits:
 
@@ -287,7 +325,7 @@ graph TD
 
     subgraph "After `make deps`"
         direction LR
-        AfterState["<b>supergraph-cncf/</b><br/>- Makefile<br/>- graphtastic.deps.yml<br/>- compose.yaml<br/>- <b>vendor/</b><br/>&nbsp;&nbsp;&nbsp;&nbsp;- tools-docker-compose/<br/>&nbsp;&nbsp;&nbsp;&nbsp;- federated-graph-core/<br/>&nbsp;&nbsp;&nbsp;&nbsp;- subgraph-software-supply-chain/"]
+        AfterState["<b>supergraph-cncf/</b><br/>- Makefile<br/>- graphtastic.deps.yml<br/>- compose.yaml<br/>- <b>.deps/</b><br/>&nbsp;&nbsp;&nbsp;&circ; tools-docker-compose/<br/>&nbsp;&nbsp;&nbsp;&circ; federated-graph-core/<br/>&nbsp;&nbsp;&nbsp;&circ; subgraph-software-supply-chain/"]
     end
 
     BeforeState -- "User runs `make deps`" --> AfterState
@@ -297,25 +335,28 @@ graph TD
 
 This workflow details how a developer makes a change to a vendored dependency and contributes it back, demonstrating the power of the architecture.
 
-1.  **Initial Setup:** A developer clones the `supergraph-cncf` Hub repository and runs `make deps`. This performs a full clone of `federated-graph-core`, `subgraph-blogs`, `subgraph-youtube`, and all other dependencies into the local `./vendor/` directory.
+1.  **Initial Setup:** A developer clones the `supergraph-cncf` Hub repository and runs `make deps`. This performs a full clone of `federated-graph-core`, `subgraph-blogs`, `subgraph-youtube`, and all other dependencies into the local `./.deps/` directory.
 
 2.  **Making a Change:** The developer needs to add a new field to the `Blogs` subgraph.
-    *   They navigate to the already-cloned repository: `cd ./vendor/subgraph-blogs/`.
+    *   They navigate to the already-cloned repository: `cd ./.deps/subgraph-blogs/`.
     *   They create a new branch from the version that was checked out: `git checkout -b feat/add-author-field`.
     *   They open the schema file (`blogs.graphql`) and the relevant source code and make their changes directly.
 
 3.  **Testing the Change:**
-    *   From the **root of the `supergraph-cncf` project**, they run `make up` or `docker compose restart subgraph-blogs-service`.
-    *   Because the `compose.yaml` files use bind mounts for schemas and source code, Docker Compose will use the **locally modified files** from `./vendor/subgraph-blogs/`.
-    *   The developer can now run queries against the local supergraph to test their changes end-to-end, validating both the schema change and the resolver logic.
+4.  *   Since subgraphs "stand alone" are are runnable in isolation, the developer can test their subgraph schema changes within the context of the subgraph repo (e.g. `./.deps/subgraph-blogs`), enabling subgraph iteration and testing directly.
+    *   From the **root of the supergraph (e.g. `supergraph-cncf`) project**, they run `make up` or `docker compose restart subgraph-blogs-service`.
+    *   Because the `compose.yaml` files use bind mounts for schemas and source code, Docker Compose will use the **locally modified files** from `./.deps/subgraph-blogs/`.
+    *   The developer can now run queries against the local supergraph to test their changes end-to-end, validating both the subgraph schema change as well as supergraph schema composition and/or other changes such as resolver logic, all locally.
 
-4.  **Contributing Back:** Once satisfied, the developer completes the contribution:
-    *   They navigate back to `./vendor/subgraph-blogs/`.
+5.  **Contributing Back:** Once satisfied, the developer completes the contribution:
+    *   They navigate back to `./.deps/subgraph-blogs/`.
     *   They commit their work: `git commit -m "feat: Add author field to Blog"`.
     *   They push the new branch to its upstream origin: `git push -u origin feat/add-author-field`.
-    *   Finally, they open a Pull Request on the main `graphtastic/subgraph-blogs` repository.
+    *   Finally, they open a Pull Request(s) on the subgraph (e.g. `graphtastic/subgraph-blogs`) and/or supergraph repository.
 
-This workflow is efficient and transparent, combining the simplicity of a monorepo-like local editing experience with the structured contribution model of a multi-repo ecosystem.
+This workflow is efficient and transparent, combining the simplicity of a monorepo-like local editing experience with the structured contribution model of a multi-repo ecosystem. 
+
+*Design note: Git sub-modules were explored and while they are an elegant solution, they are not used due to their practical complexity, cognitive overhead, and potential for error-prone workflows. They also demand of advanced git skills and often may result in poor developer UX and frustration.*
 
 **Figure 5.2: The Iterative Development and Contribution Workflow**
 
@@ -327,16 +368,16 @@ sequenceDiagram
     participant SpokeRepo as subgraph-blogs Git Repo
 
     Dev->>Local: 1. Clone Hub Repo & Run `make deps`
-    Local-->>SpokeRepo: Clones `subgraph-blogs` into ./vendor/
+    Local-->>SpokeRepo: Clones `subgraph-blogs` into ./.deps/
     
-    Dev->>Local: 2. Create branch in `./vendor/subgraph-blogs`
+    Dev->>Local: 2. Create branch in `./.deps/subgraph-blogs`
     Dev->>Local: 3. Edit files (e.g., blogs.graphql)
     
     Dev->>Local: 4. Run `make up` from Hub root
     Local-->>Local: Starts all services using locally modified files via bind mounts
     Dev->>Local: 5. Test changes against full supergraph
     
-    Dev->>Local: 6. Commit changes in `./vendor/subgraph-blogs`
+    Dev->>Local: 6. Commit changes in `./.deps/subgraph-blogs`
     Dev->>SpokeRepo: 7. Push branch to `subgraph-blogs` origin
     Dev->>SpokeRepo: 8. Open Pull Request
 ```
@@ -366,17 +407,19 @@ components:
     version: main
 ```
 
+---
+
 ### **6.0 Component Deep Dive: The Spoke (`subgraph-*`)**
 
 #### **6.1 Schema Federation Readiness: The "Federation-First" Principle**
 
 A core principle of the Graphtastic Platform is **"Federation-First."** For any new, greenfield Spoke (`subgraph-*`), the default and strongly recommended best practice is to maintain a **single, unified schema file** (`{name}.graphql`).
 
-Federation directives (like `@key`, `@shareable`, `@external`) are designed to be additive and are ignored by standard, non-federation-aware GraphQL servers. Therefore, including them directly in the base schema simplifies the component's structure, eliminates build steps, and makes the schema's contract explicit and unambiguous.
-
-The **Dual-Schema Model** described in Section 6.2 should be considered a compatibility bridge, not the default pattern. It is a powerful on-ramp for integrating existing services where the source schema cannot be modified, but it should be the exception rather than the rule.
+Federation directives (like `@key`, `@shareable`, `@external`) are designed to be additive and are ignored when the GraphQL server/endpoint is not configured for federation. Therefore, including them directly in the base schema simplifies the component's structure, eliminates build steps (to generate federation schemas dynamically or via CI), and makes the schema's contract explicit and unambiguous.
 
 #### **6.2 The Dual-Schema Model (For Compatibility)**
+
+The **Dual-Schema Model** described below should be considered a compatibility bridge, not the default pattern. It is a powerful on-ramp for integrating existing services where the source schema cannot be modified, but it should be the exception rather than the rule.
 
 *   **`{name}.graphql`:** The base SDL, which can be an unmodified, non-federated schema.
 *   **`{name}.federation.graphql`:** An extension file containing *only* the external federation directives required to integrate the base schema.
@@ -443,23 +486,32 @@ sequenceDiagram
 
 This section details the operational core of the Graphtastic Platform. It describes the reusable tooling, the developer-facing `Makefile` commands, and the automated governance workflows that ensure the integrity and stability of the entire federated ecosystem.
 
-#### **8.1 The Orchestration Layer (`tools-docker-compose`)**
+#### **8.1 The Core Tooling Repositories**
 
-To adhere to the "Don't Repeat Yourself" (DRY) principle and to ensure a consistent operational experience across all supergraphs, the core orchestration logic is extracted into its own reusable, versioned component: the `tools-docker-compose` repository.
+To adhere to the "Don't Repeat Yourself" (DRY) principle and to ensure a consistent operational experience across all supergraphs, core logic is extracted into its own reusable, versioned components.
 
-This repository provides the canonical, master `Makefile.master` and all associated scripts (e.g., `scripts/sync-deps.sh`, `scripts/manage-stacks.sh`). A Hub's local `Makefile` is a simple, lightweight shim that fetches the `tools-docker-compose` component and then delegates all operational commands (`up`, `down`, `logs`) to the master `Makefile` within the vendored directory. This ensures all supergraphs benefit from a consistent, centralized, and updatable set of management tools.
+*   **`tools-docker-compose`:**     Provides the runtime orchestration layer for Hubs. It contains the canonical, master `Makefile` and all associated scripts for discovering and managing the lifecycle of Docker Compose projects declared in the manifest.
+*   **ROADMAP: `tools-kubernetes`** Planned for future component to provide Kubernetes-native deployment and management tooling, enabling Hubs to run in cloud-native environments with the same declarative simplicity without requiring changes to existing subgraph-* and supergraph-* repositories.
+*   *   **`tools-subgraph-core`:**  A development dependency for Spokes. It provides the canonical tooling, `Makefile` includes, and reusable CI workflows for developing, validating, and testing a compliant subgraph, ensuring all Spokes adhere to the same quality and governance standards.
 
-#### **8.2 The Master Makefile: The Developer's Control Plane**
+#### **8.2 The Orchestration Layer (`tools-docker-compose`)**
+
+A Hub's local `Makefile` is a simple, lightweight shim that fetches the `tools-docker-compose` component (or `tools-kubernetes` in the future) and then delegates all operational commands (`up`, `down`, `logs`) to the master `Makefile` within the vendored repo. This ensures all supergraphs benefit from a consistent, centralized, and updatable set of management tools, and decouples the orchestration implementation from the rest of the subgraph and supergraph repositories.
+
+#### **8.3 The Master Makefile: The Developer's Control Plane**
+
+***TODO: consider renaming `Makefile.master` to avoid language-specific connotations, e.g., `Makefile.tools`, `Makefile.core` or `Makefile.base`.Avoid `Makefile` as it's ambigious and could be confused with the root Makefile in the Hub.***
 
 The `Makefile.master`, provided by the `tools-docker-compose` component, is the definitive "API" for managing the lifecycle of any supergraph. It provides a set of standardized, self-documenting targets that cover the entire development and validation workflow.
 
 **The Comprehensive `Makefile.master`:**
+
 ```makefile
 # This is the master Makefile, located in `tools-docker-compose`.
 # It is called by a Hub's lightweight, root Makefile.
 
 # Default variables
-VENDOR_DIR := ./vendor
+DEPS_DIR := ./.deps
 MANIFEST := ./graphtastic.deps.yml
 SUPERGRAPH_SDL := ./supergraph.graphql
 
@@ -495,11 +547,11 @@ help:
 
 up: deps
 	@echo "🚀 Bringing up all services..."
-	./$(VENDOR_DIR)/tools-docker-compose/scripts/manage-stacks.sh up $(MANIFEST)
+	./$(DEPS_DIR)/tools-docker-compose/scripts/manage-stacks.sh up $(MANIFEST)
 
 down:
 	@echo "🔥 Bringing down all services..."
-	./$(VENDOR_DIR)/tools-docker-compose/scripts/manage-stacks.sh down $(MANIFEST)
+	./$(DEPS_DIR)/tools-docker-compose/scripts/manage-stacks.sh down $(MANIFEST)
 
 clean: down
 	@echo "🧹 Removing shared Docker resources..."
@@ -510,7 +562,7 @@ restart: down up
 
 deps:
 	@echo "🔄 Syncing component repositories from $(MANIFEST)..."
-	./$(VENDOR_DIR)/tools-docker-compose/scripts/sync-deps.sh $(MANIFEST) $(VENDOR_DIR)
+	./$(DEPS_DIR)/tools-docker-compose/scripts/sync-deps.sh $(MANIFEST) $(DEPS_DIR)
 
 supergraph: deps
 	@echo "✍️ Rendering supergraph artifact..."
@@ -518,27 +570,27 @@ supergraph: deps
 
 validate-schemas: deps
 	@echo "🔎 Validating subgraph schemas for federation readiness..."
-	./$(VENDOR_DIR)/tools-docker-compose/scripts/validate-schemas.sh $(VENDOR_DIR)
+	./$(DEPS_DIR)/tools-docker-compose/scripts/validate-schemas.sh $(DEPS_DIR)
 
 validate: validate-schemas supergraph
 
 ps:
 	@echo "📊 Status for stack: $(stack)"
-	./$(VENDOR_DIR)/tools-docker-compose/scripts/manage-stacks.sh ps $(MANIFEST) $(stack)
+	./$(DEPS_DIR)/tools-docker-compose/scripts/manage-stacks.sh ps $(MANIFEST) $(stack)
 
 logs:
 	@echo "📜 Tailing logs for stack: $(stack)..."
-	./$(VENDOR_DIR)/tools-docker-compose/scripts/manage-stacks.sh logs $(MANIFEST) $(stack)
+	./$(DEPS_DIR)/tools-docker-compose/scripts/manage-stacks.sh logs $(MANIFEST) $(stack)
 ```
 
-#### **8.3 A Deeper Look at the Operational Targets**
+#### **8.4 A Deeper Look at the Operational Targets**
 
 ##### **Lifecycle Management (`up`, `down`, `clean`, `restart`)**
 These targets manage the entire supergraph environment. The `manage-stacks.sh` script is responsible for parsing the manifest and iterating through each component, running the appropriate `docker compose -p ...` command for each one. The `clean` command is particularly important for developers, as it provides a one-command way to completely reset their environment to a known-good state.
 
 ##### **Dependency and Build Workflow (`deps`, `supergraph`, `validate-*`)**
 This set of commands forms the core of the "pre-flight check" and governance workflow.
-*   `deps`: The idempotent script that ensures the `./vendor` directory is an exact reflection of the versions declared in the manifest.
+*   `deps`: The idempotent script that ensures the `./.deps` directory is an exact reflection of the versions declared in the manifest.
 *   `validate-schemas`: Uses GraphQL Inspector to "lint" every subgraph schema, ensuring it is federation-ready.
 *   `supergraph`: The "render" step that generates the final, reviewable `supergraph.graphql` artifact.
 *   `validate`: A convenience target that runs both schema validation and supergraph rendering, providing a single command for developers to run before committing changes.
@@ -550,13 +602,39 @@ These targets are designed for day-to-day development and debugging. They are pa
 *   `make logs`: This will tail the logs from *all* services in the supergraph, providing a high-level view of system activity.
 *   `make logs stack=federated-graph-core`: This is the most common debugging command. It allows a developer to zero in on the logs from a specific component—in this case, the core Hive platform—to diagnose issues without noise from other services.
 
-#### **8.4 Governance & Validation Workflows**
+#### **8.5 Governance & Validation Workflows**
 
-The platform enforces schema integrity and best practices through a combination of the local pre-flight checks detailed above and automated CI governance.
+The platform enforces schema integrity and best practices through a combination of local tooling and automated CI governance.
 
-##### **CI/CD Governance**
-The CI pipeline, triggered on every Pull Request in a Hub repository, acts as an automated gatekeeper. It does not trust that the developer has run the pre-flight checks correctly and will execute them independently to ensure compliance.
+##### **Local Governance**
+The `tools-subgraph-core` component provides a `Makefile.master.subgraph` and validation scripts. This enables every developer to run canonical checks (e.g., `make validate-federation`) on a Spoke before committing, ensuring compliance with platform rules.
 
-The CI workflow must include the following jobs:
-1.  **Federation Readiness Check:** The CI runner executes `make validate-schemas`. This command will fail if any subgraph schema in the declared dependency tree is not compliant with the platform's federation rules, blocking the PR.
-2.  **Supergraph Consistency Check:** This is the most critical enforcement step. The CI runner executes `make supergraph` to generate a fresh supergraph SDL based on the manifest. It then runs `git diff --exit-code supergraph.graphql`. If the generated file is different from the one that was committed, the `diff` command will exit with a non-zero status code, causing the CI job to fail. This guarantees that the `supergraph.graphql` artifact in a PR is an exact and up-to-date representation of its sources, blocking stale or incorrect artifacts.
+##### **CI/CD Governance via Reusable Workflows**
+The CI pipeline, triggered on every Pull Request, acts as an automated gatekeeper. We use **GitHub's Reusable Workflows** feature, with the canonical workflow logic defined in the `tools-subgraph-core` repository. A Spoke's own CI file is a minimal, secure shim that calls this centralized workflow, ensuring every Spoke is validated against the same up-to-date logic without code duplication or security risks.
+
+```yaml
+# In a subgraph's .github/workflows/ci.yml
+jobs:
+  validate:
+    uses: graphtastic/tools-subgraph-core/.github/workflows/subgraph-ci.yml@v1.0.0
+    secrets: inherit
+```
+
+In the Hub's CI pipeline, a critical job runs `make supergraph` and then `git diff --exit-code supergraph.graphql`. This fails the build if the committed artifact is stale or was generated incorrectly, guaranteeing that what is in Git is an exact representation of its sources.
+
+#### **8.6 Secret Management**
+
+We employ a progressive, environment-aware strategy consistent with 12-Factor App principles. It defaults to being secure and requires no initial developer configuration.
+
+1.  **Level 1 (Zero Config - Local Dev):** Services in `compose.yaml` use insecure, documented defaults for local development (e.g., `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}`). This allows the stack to run "out of the box" without manual setup.
+2.  **Level 2 (Local Override):** Repositories that require secrets provide a `.env.template` file. Developers can copy this to a `.gitignore`'d `.env` file to provide custom values, which are automatically loaded by Docker Compose.
+3.  **Level 3 (CI/CD & Production):** Automated environments generate the `.env` file at runtime, or use ENV variables to override values in a .env file from a secure store, such as GitHub Actions secrets or a dedicated secret manager like HashiCorp Vault. No secrets are ever committed to the repository.
+
+#### **8.7 Configurable Data Persistence**
+
+To optimize the developer experience and provide flexibility, data persistence for stateful services is configurable, and adheres to the 12-Factor principle of separating backing services. This is managed via an environment variable that alters the `volumes` section in `compose.yaml` files.
+
+*   **Default (Bind Mount):** By default (`PERSISTENCE_MODE=bind`), services mount a local `./data` directory within their project folder (e.g., `./.deps/federated-graph-core/data/postgres`). This makes the data transparent and easily accessible for inspection or modification during development.
+*   **Optional (Named Volume):** By running `make up mode=volume`, developers can switch to using standard, persistent Docker named volumes. 
+
+The `make clean` target is configured to intelligently remove either the local data directories or the associated named volumes, providing a complete "factory reset" for the developer's environment.
