@@ -63,7 +63,7 @@ During our discussion, we clarified and confirmed our naming conventions to main
 
 ### **Part 2: The Detailed Execution Plan**
 
-This plan is designed to be executed sequentially by an engineer. It assumes the engineer has the following tools installed: `git`, `docker`, `docker-compose`, and `yq` (for YAML parsing in shell scripts). All work should be done within a single parent directory.
+This plan is designed to be executed sequentially by an engineer. It assumes the engineer has the following tools installed: `git`, `docker`, `docker compose`, and `yq` (for YAML parsing in shell scripts). All work should be done within a single parent directory.
 
 #### **Phase 0: The Developer Control Plane**
 
@@ -189,9 +189,9 @@ This plan is designed to be executed sequentially by an engineer. It assumes the
                 # Apply supergraph-level overrides if they exist
                 OVERRIDE_FILE="./compose.override.yaml"
                 if [ -f "$OVERRIDE_FILE" ]; then
-                     COMPOSE_CMD="docker-compose -p ${SUPERGRAPH_NAME}-${name} -f ${COMPOSE_FILE} -f ${OVERRIDE_FILE} ${ACTION}"
+                     COMPOSE_CMD="docker compose -p ${SUPERGRAPH_NAME}-${name} -f ${COMPOSE_FILE} -f ${OVERRIDE_FILE} ${ACTION}"
                 else
-                     COMPOSE_CMD="docker-compose -p ${SUPERGRAPH_NAME}-${name} -f ${COMPOSE_FILE} ${ACTION}"
+                     COMPOSE_CMD="docker compose -p ${SUPERGRAPH_NAME}-${name} -f ${COMPOSE_FILE} ${ACTION}"
                 fi
 
                 echo "Executing for $name: $COMPOSE_CMD"
@@ -264,8 +264,11 @@ This plan is designed to be executed sequentially by an engineer. It assumes the
 
 **Task 1.1: Create `subgraph-blogs`**
 
-1.  Create the Spoke from the template: `cp -r template-subgraph/ subgraph-blogs/`
-2.  Create the Yoga server at `subgraph-blogs/index.js`:
+1.  **Instantiate the Spoke Repository:**
+    *   On your Git provider (e.g., GitHub), create a new repository named `subgraph-blogs` using `graphtastic/template-subgraph` as the template.
+    *   Clone the newly created repository: `git clone https://github.com/graphtastic/subgraph-blogs.git`
+2.  Navigate into the new directory: `cd subgraph-blogs`
+3.  Create the Yoga server at `subgraph-blogs/index.js`:
     ```javascript
     import { createServer } from 'node:http'
     import { createYoga } from 'graphql-yoga'
@@ -299,8 +302,8 @@ This plan is designed to be executed sequentially by an engineer. It assumes the
     const server = createServer(yoga);
     server.listen(4001, () => { console.info('Blogs subgraph running at http://localhost:4001/graphql') });
     ```
-3.  Update `subgraph-blogs/schema.graphql` with the schema from the `typeDefs` above.
-4.  Create a `subgraph-blogs/package.json`:
+4.  Update `subgraph-blogs/schema.graphql` with the schema from the `typeDefs` above.
+5.  Create a `subgraph-blogs/package.json`:
     ```json
     {
       "name": "subgraph-blogs",
@@ -311,7 +314,7 @@ This plan is designed to be executed sequentially by an engineer. It assumes the
       }
     }
     ```
-5.  Create `subgraph-blogs/compose.yaml`:
+6.  Create `subgraph-blogs/compose.yaml`:
     ```yaml
     version: "3.8"
     services:
@@ -323,7 +326,7 @@ This plan is designed to be executed sequentially by an engineer. It assumes the
       graphtastic_net:
         external: true
     ```
-6.  Create `subgraph-blogs/Dockerfile`:
+7.  Create `subgraph-blogs/Dockerfile`:
     ```dockerfile
     FROM node:18-alpine
     WORKDIR /app
@@ -332,14 +335,16 @@ This plan is designed to be executed sequentially by an engineer. It assumes the
     COPY . .
     CMD ["node", "index.js"]
     ```
+8.  Commit and push these changes to the `subgraph-blogs` repository.
 
 **Task 1.2: Create `subgraph-authors`**
 
-1.  Create the Spoke from the template: `cp -r template-subgraph/ subgraph-authors/`
+1.  Follow the same Git-based procedure as in Task 1.1 to create and clone a new `subgraph-authors` repository from the template.
 2.  Create the Yoga server, schema, `package.json`, `compose.yaml`, and `Dockerfile` similar to `subgraph-blogs`, but for Authors.
     *   **Schema:** `type Author @key(fields: "id") { id: ID!, name: String! }`
     *   **Data:** `[{ id: '101', name: 'Alice' }, { id: '102', name: 'Bob' }]`
     *   **Port:** Use port `4002`.
+3.  Commit and push the changes to the `subgraph-authors` repository.
 
 **Task 1.3: Create `federated-graph-core`**
 
@@ -371,7 +376,7 @@ This plan is designed to be executed sequentially by an engineer. It assumes the
 
 **Task 1.4: Create and Configure `supergraph-cncf`**
 
-1.  Create the Hub: `cp -r template-supergraph/ supergraph-cncf/`
+1.  Instantiate the Hub repository from the `template-supergraph` and clone it locally.
 2.  Update `supergraph-cncf/graphtastic.deps.yml`:
     ```yaml
     components:
@@ -382,10 +387,10 @@ This plan is designed to be executed sequentially by an engineer. It assumes the
         git: ../federated-graph-core
         version: main
       - name: subgraph-blogs
-        git: ../subgraph-blogs
+        git: ../subgraph-blogs # Use the path to your locally cloned repo
         version: main
       - name: subgraph-authors
-        git: ../subgraph-authors
+        git: ../subgraph-authors # Use the path to your locally cloned repo
         version: main
     ```
 3.  Create `supergraph-cncf/.env`:
@@ -438,7 +443,7 @@ This concludes the most critical phases. The subsequent phases (2, 3, 4, and 5) 
 
 **Task 2.1: Create `subgraph-dgraph-static` Spoke**
 
-1.  Create the Spoke from the base template: `cp -r template-subgraph/ subgraph-dgraph-static/`
+1.  Create the `subgraph-dgraph-static` repository from the `template-subgraph` and clone it.
 2.  Establish the Dgraph data directory structure inside the Spoke: `mkdir -p subgraph-dgraph-static/data/{zero,alpha}`
 3.  Create the Dgraph schema at `subgraph-dgraph-static/schema.graphql`. This schema includes both Dgraph's `@id` directive for unique key enforcement and the Federation `@key` directive for compatibility with the supergraph.
     ```graphql
@@ -504,10 +509,10 @@ This concludes the most critical phases. The subsequent phases (2, 3, 4, and 5) 
     .PHONY: up down clean apply-schema load-data
 
     up:
-        docker-compose up -d
+        docker compose up -d
 
     down:
-        docker-compose down
+        docker compose down
 
     clean: down
         @echo "🧹 Removing local data..."
@@ -523,7 +528,7 @@ This concludes the most critical phases. The subsequent phases (2, 3, 4, and 5) 
     ```
 6.  **Standalone Verification:**
     *   `cd subgraph-dgraph-static`
-    *   `docker-compose up -d`
+    *   `docker compose up -d`
     *   Wait a few seconds for the cluster to stabilize, then: `make apply-schema`
     *   `make load-data`
     *   Verify data by running a query against `http://localhost:8081/graphql`.
@@ -598,7 +603,7 @@ This concludes the most critical phases. The subsequent phases (2, 3, 4, and 5) 
 
 **Task 3.1: Create `subgraph-dgraph-gharchive` Spoke**
 
-1.  Create the repository, reusing the Dgraph setup: `cp -r subgraph-dgraph-static/ subgraph-dgraph-gharchive/`
+1.  Create the `subgraph-dgraph-gharchive` repository from the `subgraph-dgraph-static` repository (since it's a stateful Dgraph Spoke) and clone it.
 2.  Update the schema at `subgraph-dgraph-gharchive/schema.graphql` for GHArchive data:
     ```graphql
     type PushEvent @key(fields: "id") {
@@ -718,7 +723,7 @@ This concludes the most critical phases. The subsequent phases (2, 3, 4, and 5) 
 
 **Task 4.1: Create `subgraph-dgraph-software-supply-chain` Spoke**
 
-1.  Create the repository: `cp -r subgraph-dgraph-static/ subgraph-dgraph-software-supply-chain/`
+1.  Create the `subgraph-dgraph-software-supply-chain` repository from the `subgraph-dgraph-static` template and clone it.
 2.  Update the Spoke's `compose.yaml`. For isolated development, it will run its own instance of GUAC.
     ```yaml
     # In subgraph-dgraph-software-supply-chain/compose.yaml
@@ -748,7 +753,7 @@ This concludes the most critical phases. The subsequent phases (2, 3, 4, and 5) 
         node etl/index.js --source-url http://localhost:8085 --output-file ./data/guac-data.rdf.gz
 
         # 2. Use Dgraph Live Loader to ingest the RDF file
-        docker-compose exec alpha dgraph live --files /dgraph/guac-data.rdf.gz --alpha alpha:7080 --zero zero:5080
+        docker compose exec alpha dgraph live --files /dgraph/guac-data.rdf.gz --alpha alpha:7080 --zero zero:5080
     ```
 
 **Task 4.2: Integrate into `supergraph-cncf`**
