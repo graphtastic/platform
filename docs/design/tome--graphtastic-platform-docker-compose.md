@@ -498,16 +498,14 @@ To adhere to the "Don't Repeat Yourself" (DRY) principle and to ensure a consist
 
 A Hub's local `Makefile` is a simple, lightweight shim that fetches the `tools-docker-compose` component (or `tools-kubernetes` in the future) and then delegates all operational commands (`up`, `down`, `logs`) to the master `Makefile` within the vendored repo. This ensures all supergraphs benefit from a consistent, centralized, and updatable set of management tools, and decouples the orchestration implementation from the rest of the subgraph and supergraph repositories.
 
-#### **8.3 The Master Makefile: The Developer's Control Plane**
+#### **8.3 The Core Makefile: The Developer's Control Plane**
 
-***TODO: consider renaming `Makefile.master` to avoid language-specific connotations, e.g., `Makefile.tools`, `Makefile.core` or `Makefile.base`.Avoid `Makefile` as it's ambigious and could be confused with the root Makefile in the Hub.***
+The `Makefile.core`, provided by the `tools-docker-compose` component, is the definitive "API" for managing the lifecycle of any supergraph. It provides a set of standardized, self-documenting targets that cover the entire development and validation workflow.
 
-The `Makefile.master`, provided by the `tools-docker-compose` component, is the definitive "API" for managing the lifecycle of any supergraph. It provides a set of standardized, self-documenting targets that cover the entire development and validation workflow.
-
-**The Comprehensive `Makefile.master`:**
+**The Comprehensive `Makefile.core`:**
 
 ```makefile
-# This is the master Makefile, located in `tools-docker-compose`.
+# This is the core Makefile, located in `tools-docker-compose`.
 # It is called by a Hub's lightweight, root Makefile.
 
 # Default variables
@@ -607,7 +605,7 @@ These targets are designed for day-to-day development and debugging. They are pa
 The platform enforces schema integrity and best practices through a combination of local tooling and automated CI governance.
 
 ##### **Local Governance**
-The `tools-subgraph-core` component provides a `Makefile.master.subgraph` and validation scripts. This enables every developer to run canonical checks (e.g., `make validate-federation`) on a Spoke before committing, ensuring compliance with platform rules.
+The `tools-subgraph-core` component provides a `Makefile.subgraph.core` and validation scripts. This enables every developer to run canonical checks (e.g., `make validate-federation`) on a Spoke before committing, ensuring compliance with platform rules.
 
 ##### **CI/CD Governance via Reusable Workflows**
 The CI pipeline, triggered on every Pull Request, acts as an automated gatekeeper. We use **GitHub's Reusable Workflows** feature, with the canonical workflow logic defined in the `tools-subgraph-core` repository. A Spoke's own CI file is a minimal, secure shim that calls this centralized workflow, ensuring every Spoke is validated against the same up-to-date logic without code duplication or security risks.
@@ -618,9 +616,6 @@ jobs:
   validate:
     uses: graphtastic/tools-subgraph-core/.github/workflows/subgraph-ci.yml@v1.0.0
     secrets: inherit
-```
-
-In the Hub's CI pipeline, a critical job runs `make supergraph` and then `git diff --exit-code supergraph.graphql`. This fails the build if the committed artifact is stale or was generated incorrectly, guaranteeing that what is in Git is an exact representation of its sources.
 
 #### **8.6 Secret Management**
 
