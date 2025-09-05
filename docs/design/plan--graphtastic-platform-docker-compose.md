@@ -17,7 +17,7 @@ The implementation strategy for the Graphtastic Platform is founded on a core ph
 
 The first and most critical decision in our plan is to build the foundational tooling *before* any functional components. As detailed in **Phase 0**, we will first create the `tools-docker-compose`, `tools-subgraph-core`, and `template-*` repositories.
 
-*   **Rationale:** This approach establishes the complete developer control plane and governance framework from day one. It guarantees that the very first Spoke (`subgraph-blogs`) is built using the same standardized CI pipelines, `Makefile` orchestration, and validation checks as the most complex Spoke that will come later. This front-loading of effort eradicates an entire class of future integration problems and ensures a consistent, high-quality developer experience throughout the project's lifecycle.
+*   **Rationale:** This approach establishes the complete developer control plane and governance framework from day one. It guarantees that the very first Spoke (`subgraph-blogs`) is built using the same standardized CI pipelines, `Makefile` orchestration from `tools-subgraph-core`, and validation checks as the most complex Spoke that will come later. This front-loading of effort eradicates an entire class of future integration problems and ensures a consistent, high-quality developer experience throughout the project's lifecycle.
 
 #### **1.2 The "Isolate the Variables" Approach to Federation**
 
@@ -58,6 +58,23 @@ During our discussion, we clarified and confirmed our naming conventions to main
 *   **Rationale:**
     *   We will retain the name `federated-graph-core` because it precisely describes its function as the engine that enables federation.
     *   We will defer the creation of a `tools-supergraph-core` repository. The Hubs are intended to be simple assemblers, and their logic is either provided by `tools-docker-compose` or is use-case-specific. Introducing another tools repository at this stage would be an unnecessary abstraction.
+
+#### **1.7 Architectural Decision: GraphQL Mesh for Supergraph Composition**
+
+The Tome v8.3 describes the "Render, Commit, Run" workflow, where a `supergraph.graphql` artifact is generated and committed to source control. The plan executes this using the `npx @graphql-mesh/compose-cli` tool.
+
+*   **Rationale:** This is a deliberate architectural choice. While other tools (including services within the Hive platform) can perform composition, using the standalone GraphQL Mesh CLI offers key advantages for our CI/CD and developer workflow:
+    1.  **It is a lightweight, stateless build tool.** It requires no running services, databases, or external state, making it perfect for fast, ephemeral CI jobs.
+    2.  **It decouples composition from the runtime.** Our build process does not depend on our running `federated-graph-core` stack, which aligns perfectly with the goal of treating the supergraph artifact as a declarative build product.
+    3.  **It provides a consistent toolchain.** Using Mesh for both source adaptation (as in Phase 4) and supergraph composition simplifies the project's tooling dependencies.
+
+#### **1.8 Architectural Decision: Dependency Versioning Strategy**
+
+Throughout this implementation plan, the `version` field in the `graphtastic.deps.yml` manifest is set to `main`. This is an explicit choice to optimize for the developer "inner loop" during the initial build-out of the platform.
+
+*   **Rationale:**
+    *   **For Development:** Using `main` allows developers working on the Hub to immediately pull in the latest changes from Spoke repositories without waiting for a formal release and version tag. This accelerates iterative development and cross-component work.
+    *   **For Production:** As mandated by the Tome (Sec 3.4, Precept 5), any Hub intended for a staging or production deployment **must** have its dependencies pinned to specific, immutable Git tags (e.g., `version: v1.3.0`). This plan focuses on the initial, local-first development workflow, and the transition to tagged versions is a critical step for production hardening.
 
 ---
 
@@ -394,8 +411,7 @@ This plan is designed to be executed sequentially by an engineer. It assumes the
         version: main
     ```
 3.  Create `supergraph-cncf/.env`:
-    ```
-    SHARED_NETWORK_NAME=graphtastic_net
+    ```    SHARED_NETWORK_NAME=graphtastic_net
     ```
 4.  Create `supergraph-cncf/mesh.config.js`:
     ```javascript
