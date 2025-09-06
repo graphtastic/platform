@@ -46,12 +46,12 @@ divided into two parts:
     - [Phase 2: Simple Stateful Backend (Dgraph "Hello World")](#phase-2-simple-stateful-backend-dgraph-hello-world)
       - [Task 2.1: Create `subgraph-dgraph-static` Spoke](#task-21-create-subgraph-dgraph-static-spoke)
       - [Task 2.2: Integrate `subgraph-dgraph-static` into `supergraph-cncf`](#task-22-integrate-subgraph-dgraph-static-into-supergraph-cncf)
-    - [Phase 3: Complex Stateful Backend (Dynamic Data Ingestion)](#phase-3-complex-stateful-backend-dynamic-data-ingestion)
+    - [Phase 3: Advanced Schema Augmentation (The GHArchive Case Study)](#phase-3-advanced-schema-augmentation-the-gharchive-case-study)
       - [Task 3.1: Create `subgraph-dgraph-gharchive` Spoke](#task-31-create-subgraph-dgraph-gharchive-spoke)
-      - [Task 3.2: Integrate `subgraph-dgraph-gharchive` into `supergraph-cncf`](#task-32-integrate-subgraph-dgraph-gharchive-into-supergraph-cncf)
     - [Phase 4: Advanced Schema Correction (The GUAC Case Study)](#phase-4-advanced-schema-correction-the-guac-case-study)
       - [Task 4.1: Create `subgraph-mesh-guac` (The Corrective Lens)](#task-41-create-subgraph-mesh-guac-the-corrective-lens)
       - [Task 4.2: Create `graphtastic-rdf-exporter` CLI Tool](#task-42-create-graphtastic-rdf-exporter-cli-tool)
+      - [Task 4.3: Create `subgraph-dgraph-software-supply-chain` (The Persistent Store)](#task-43-create-subgraph-dgraph-software-supply-chain-the-persistent-store)
     - [Phase 5: Production Hardening and Polish](#phase-5-production-hardening-and-polish)
       - [Task 5.1: Supergraph CI/CD Hardening](#task-51-supergraph-cicd-hardening)
       - [Task 5.2: Secret Management Implementation](#task-52-secret-management-implementation)
@@ -72,7 +72,7 @@ divided into two parts:
 - [ ] [Task 2.1: Create `subgraph-dgraph-static` Spoke](#task-21-create-subgraph-dgraph-static-spoke)
 - [ ] [Task 2.2: Integrate `subgraph-dgraph-static` into `supergraph-cncf`](#task-22-integrate-subgraph-dgraph-static-into-supergraph-cncf)
 - [ ] [Task 3.1: Create `subgraph-dgraph-gharchive` Spoke](#task-31-create-subgraph-dgraph-gharchive-spoke)
-- [ ] [Task 3.2: Integrate `subgraph-dgraph-gharchive` into `supergraph-cncf`](#task-32-integrate-subgraph-dgraph-gharchive-into-supergraph-cncf)
+- [ ] [Task 3.2: Integrate `subgraph-dgraph-gharchive` into `supergraph-cncf`](#task-22-integrate-subgraph-dgraph-static-into-supergraph-cncf)
 - [ ] [Task 4.1: Create `subgraph-mesh-guac` (The Corrective Lens)](#task-41-create-subgraph-mesh-guac-the-corrective-lens)
 - [ ] [Task 4.2: Integrate into `supergraph-cncf`](#task-22-integrate-subgraph-dgraph-static-into-supergraph-cncf)
 - [ ] [Task 5.1: Supergraph CI/CD Hardening](#task-51-supergraph-cicd-hardening)
@@ -1161,180 +1161,24 @@ possible, validating the base technology and the pattern for a stateful Spoke.
         the stateless `authors` subgraph with the stateful Dgraph `characters`
         subgraph.
 
-### Phase 3: Complex Stateful Backend (Dynamic Data Ingestion)
+---
 
-[ ] Phase 3: Complex Stateful Backend (Dynamic Data Ingestion)
+### Phase 3: Advanced Schema Augmentation (The GHArchive Case Study)
 
-**Goal:** Build upon the Dgraph foundation by creating a Spoke that handles a
-dynamic data loading pipeline from an external source (`gharchive`).
+[ ] Phase 3: Advanced Schema Augmentation (The GHArchive Case Study)
+
+**Goal:** Implement the `gharchive` Spoke using the Transformation Sidecar pattern to demonstrate declarative schema augmentation.
 
 #### Task 3.1: Create `subgraph-dgraph-gharchive` Spoke
 
 [ ] Task 3.1: Create `subgraph-dgraph-gharchive` Spoke
 
-1. **Instantiate the Spoke Repository:** Because this is a Dgraph-based Spoke,
-    the `subgraph-dgraph-static` repository is a better starting point than the
-    base template. Create a new repository named `subgraph-dgraph-gharchive`
-    using `graphtastic/subgraph-dgraph-static` as the template, then clone it
-    locally.
-2. Navigate into the new directory: `cd subgraph-dgraph-gharchive`
-3. Update the schema at `schema.graphql` for GHArchive data:
-
-    ```graphql
-    type PushEvent @key(fields: "id") {
-      id: String! @id
-      actor: String! @search(by: [hash])
-      repo: String! @search(by: [term])
-      commitCount: Int
-      createdAt: DateTime! @search(by: [hour])
-    }
-    ```
-
-4. Create a directory for the ingestion script: `mkdir ./loader`
-5. Create a `package.json` for the loader script at `loader/package.json`:
-
-    ```json
-    {
-      "name": "gharchive-loader",
-      "type": "module",
-      "dependencies": {
-        "node-fetch": "^3.3.2",
-        "zlib": "^1.0.5"
-      }
-    }
-    ```
-
-6. Create the ingestion script at `loader/index.js`. This script fetches,
-    parses, transforms, and loads data in batches. Note the use of
-    `process.env.DGRAPH_ENDPOINT` to avoid hardcoding.
-
-    ```javascript
-    import fetch from 'node-fetch';
-    import { createGunzip } from 'zlib';
-    import { Writable } from 'stream';
-    import { pipeline } from 'stream/promises';
-
-    const DGRAPH_ALPHA_URL = process.env.DGRAPH_ENDPOINT || 'http://localhost:8082/graphql';
-    const BATCH_SIZE = 1000;
-
-    async function main() {
-      // Fetch data for a specific hour, e.g., 2025-09-05 at 15:00 UTC
-      const response = await fetch('https://data.gharchive.org/2025-09-05-15.json.gz');
-      if (!response.ok) throw new Error(`Failed to fetch: ${response.statusText}`);
-
-      let buffer = [];
-      const jsonlParser = new Writable({
-        async write(chunk, encoding, callback) {
-          const lines = chunk.toString().split('\n');
-          for (const line of lines) {
-            if (!line) continue;
-            try {
-              const event = JSON.parse(line);
-              if (event.type === 'PushEvent') {
-                buffer.push({
-                  id: event.id,
-                  actor: event.actor.login,
-                  repo: event.repo.name,
-                  commitCount: event.payload.commits?.length || 0,
-                  createdAt: event.created_at
-                });
-
-                if (buffer.length >= BATCH_SIZE) {
-                  await loadBatch(buffer);
-                  buffer = [];
-                }
-              }
-            } catch (e) { /* Ignore malformed JSON lines */ }
-          }
-          callback();
-        }
-      });
-
-      await pipeline(response.body, createGunzip(), jsonlParser);
-      if (buffer.length > 0) await loadBatch(buffer); // Load final batch
-      console.log('Ingestion complete.');
-    }
-
-    async function loadBatch(events) {
-      const mutation = `
-        mutation AddPushEvents($events: [AddPushEventInput!]!) {
-          addPushEvent(input: $events, upsert: true) {
-            numUids
-          }
-        }
-      `;
-      const response = await fetch(DGRAPH_ALPHA_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: mutation, variables: { events } }),
-      });
-      const result = await response.json();
-      console.log(`Loaded batch of ${events.length}. Response:`, result);
-    }
-
-    main().catch(console.error);
-    ```
-
-7. Update `compose.yaml` to use different host ports (e.g., `8082`, `9082`,
-    `5082`, `6082`, `8002`) to avoid conflicts with the other Dgraph Spoke.
-8. Update the `Makefile` to manage the loader script and provide the `seed`
-    target.
-
-    ```makefile
-    # subgraph-dgraph-gharchive/Makefile
-    include ../tools-subgraph-core/Makefile.subgraph.master
-
-    .PHONY: up down clean apply-schema install-loader load-data seed
-
-    # ... (up, down, clean targets are standard) ...
-
-    apply-schema:
-        curl -X POST localhost:8082/admin/schema --data-binary "@schema.graphql"
-
-    install-loader:
-        cd loader && npm install
-
-    load-data: install-loader
-        @echo "Loading GHArchive data for a sample hour..."
-        DGRAPH_ENDPOINT="http://localhost:8082/graphql" node loader/index.js
-
-    seed: apply-schema load-data
-    ```
-
-9. Commit and push these changes to the `subgraph-dgraph-gharchive` repository.
-
-#### Task 3.2: Integrate `subgraph-dgraph-gharchive` into `supergraph-cncf`
-
-[ ] Task 3.2: Integrate `subgraph-dgraph-gharchive` into `supergraph-cncf`
-
-1. Navigate to the `supergraph-cncf` directory.
-2. Add the new Spoke to `graphtastic.deps.yml`.
-
-    ```yaml
-      # ... existing components
-      - name: subgraph-dgraph-gharchive
-        git: ../subgraph-dgraph-gharchive
-        version: main
-        type: spoke
-    ```
-
-3. Update `mesh.config.js` to add `gharchive` as a source, pointing to its
-    Dgraph Alpha service on its internal port `8080`.
-
-    ```javascript
-    // ... existing sources, including 'characters'
-    {
-      name: 'gharchive',
-      handler: {
-        graphql: { endpoint: 'http://alpha:8080/graphql' } // This still works due to service name resolution
-      }
-    },
-    ```
-
-4. Re-render the supergraph (`make supergraph`) and restart the system (`make
-    up`). The `make up` command will now automatically seed both Dgraph Spokes.
-5. Verify with a query against `http://localhost:4000/graphql` that filters for
-    `PushEvent` data to confirm the new Spoke is federated and contains data.
+1. **Instantiate the Spoke Repository:** Create a new repository named `subgraph-dgraph-gharchive` from the `template-spoke-mesh` template.
+2. **Add the Dgraph Backend:** Modify the `compose.yaml` to include the standard Dgraph service stack (`zero`, `alpha`, `ratel`) on an internal `default` network. The `mesh-gateway` service will now be the only service exposed to `graphtastic_net`.
+3. **Implement "Schema Archeology":**
+    - Create `src/gharchive.projection.graphql` containing the manually projected, focused schema based on analysis of the event data and the official GitHub SDL.
+    - Update `.meshrc.yml` to use the Dgraph `alpha` service as its upstream. Configure a series of transforms to programmatically add the `@id` and `@search` directives to the projected schema types.
+4. **Implement the Loader:** Add a `loader` service to the `compose.yaml` that can run the data ingestion script on demand.
 
 ---
 
@@ -1416,6 +1260,16 @@ dynamic data loading pipeline from an external source (`gharchive`).
 1. **Initialize a new Node.js/TypeScript Project:** This is not a Spoke, but a standalone tool. Create a new repository for it.
 2. **Implement the Core Logic:** The script will implement the two-phase "Nouns then Verbs" extraction process detailed in `design--guac-to-dgraph.md`. It will be configurable via environment variables and CLI flags.
 3. **Containerize the Tool:** Create a `Dockerfile` for the tool so it can be easily run in CI environments or via `docker run` commands, as shown in the `subgraph-mesh-guac` Makefile.
+
+#### Task 4.3: Create `subgraph-dgraph-software-supply-chain` (The Persistent Store)
+
+[ ] Task 4.3: Create `subgraph-dgraph-software-supply-chain` (The Persistent Store)
+
+**Goal:** Create the final, persistent Dgraph Spoke that acts as the aggregation point for software supply chain data.
+
+1. **Instantiate the Spoke Repository:** Create a new repository named `subgraph-dgraph-software-supply-chain` from the `template-spoke-dgraph` template.
+2. **Update the Schema:** The `schema.graphql` file in this Spoke will be the Dgraph-augmented version of the GUAC schema.
+3. **Implement the Ingestion Makefile:** Update the `Makefile` to include a `seed` target. This target will expect a path to a pre-generated RDF artifact and will use the `dgraph live` command to load it into the running Dgraph cluster.
 
 ---
 

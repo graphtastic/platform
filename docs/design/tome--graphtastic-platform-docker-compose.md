@@ -6,6 +6,12 @@
 
 ## Document Changelog
 
+- **v8.5:**
+  - **Adopted "OCI-style" Spoke Layering:** Formalized the use of layered templates
+        (template-spoke-base, template-spoke-dgraph, template-spoke-mesh) to maximize
+        reusability and enforce separation of concerns, solidifying the platform's
+        declarative, component-based architecture.
+
 - **v8.4**:
   - **Formalized Transformation Sidecar Pattern:** Added a new section (Sec 4.6)
         to define and document the "Transformation Sidecar Pattern," where GraphQL
