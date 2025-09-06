@@ -90,86 +90,73 @@ This plan is designed to be executed sequentially by an engineer. It assumes the
 
 1.  Create the repository directory: `mkdir -p tools-docker-compose/scripts`
 2.  Create the master `Makefile` at `tools-docker-compose/Makefile.master`:
-    ```makefile
-    # This is the master Makefile, located in `tools-docker-compose`.
-    # It is called by a Hub's lightweight, root Makefile.
+  ```makefile
+  # This is the master Makefile, located in `tools-docker-compose`.
+  # It is called by a Hub's lightweight, root Makefile.
 
-    # Default variables
-    DEPS_DIR := ./.deps
-    MANIFEST := ./graphtastic.deps.yml
-    SUPERGRAPH_SDL := ./supergraph.graphql
+  # Default variables
+  DEPS_DIR := ./.deps
+  MANIFEST := ./graphtastic.deps.yml
+  SUPERGRAPH_SDL := ./supergraph.graphql
+  SHARED_NETWORK_NAME ?= $(shell grep SHARED_NETWORK_NAME .env | cut -d '=' -f2)
 
-    # This allows passing a stack name, e.g., `make logs stack=subgraph-blogs`
-    stack ?= all
+  # This allows passing a stack name, e.g., `make logs stack=subgraph-blogs`
+  stack ?= all
 
-    # Allow passing persistence mode, e.g., `make up mode=volume`
-    mode ?= bind
+  # Allow passing persistence mode, e.g., `make up mode=volume`
+  mode ?= bind
 
-    .PHONY: help up down clean restart deps supergraph validate ps logs seed
+  .PHONY: help setup up down clean restart deps supergraph validate ps logs seed
 
-    help:
-        @echo "Graphtastic Platform - Master Orchestrator"
-        @echo "--------------------------------------------"
-        @echo "Usage: make [target] [stack=<stack_name>] [mode=bind|volume]"
-        @echo ""
-        @echo "Lifecycle Targets:"
-        @echo "  up                 - Start all services defined in the manifest."
-        @echo "  down               - Stop and remove all services."
-        @echo "  clean              - Run 'down' and remove shared Docker resources."
-        @echo "  restart            - Restart all services."
-        @echo "  seed               - Seed data for all stateful services."
-        @echo ""
-        @echo "Dependency & Build Targets:"
-        @echo "  deps               - Sync/update local dependencies from the manifest."
-        @echo "  supergraph         - Render the final supergraph.graphql artifact."
-        @echo ""
-        @echo "Interactive & Debugging Targets:"
-        @echo "  ps                 - Show the status of running containers. Use 'stack=' to target one."
-        @echo "  logs               - Tail the logs of services. Use 'stack=' to target one."
+  help:
+    @echo "Graphtastic Platform - Master Orchestrator"
+    @echo "--------------------------------------------"
+    @echo "Usage: make [target] [stack=<stack_name>] [mode=bind|volume]"
+    @echo ""
+    @echo "Lifecycle Targets:"
+    @echo "  up                 - Start all services defined in the manifest."
+    @echo "  down               - Stop and remove all services."
+    @echo "  clean              - Run 'down' and remove shared Docker resources."
+    @echo "  restart            - Restart all services."
+    @echo "  logs               - Tail the logs of services. Use 'stack=' to target one."
 
-    up: deps seed
-        @echo "🚀 Bringing up all services with persistence mode: $(mode)..."
-        ./$(DEPS_DIR)/tools-docker-compose/scripts/manage-stacks.sh up $(MANIFEST) $(mode)
+  setup:
+    @docker network inspect $(SHARED_NETWORK_NAME) >/dev/null 2>&1 || \
 
-    down:
-        @echo "🔥 Bringing down all services..."
-        ./$(DEPS_DIR)/tools-docker-compose/scripts/manage-stacks.sh down $(MANIFEST)
+  up: setup deps seed
+    @echo "🚀 Bringing up all services with persistence mode: $(mode)..."
+    ./$(DEPS_DIR)/tools-docker-compose/scripts/manage-stacks.sh up $(MANIFEST) $(mode)
 
-    clean:
-	@read -p "This will stop all services and permanently remove all local data for this supergraph. Are you sure? (y/N) " confirm && [ $${confirm:-N} = y ] || exit 1
-	@$(MAKE) down
-	@echo "🧹 Removing shared Docker resources and local data..."
-	@docker network rm $$(grep SHARED_NETWORK_NAME .env | cut -d '=' -f2) 2>/dev/null || true
-	@yq e '.components[] | select(.type == "spoke") | .name' $(MANIFEST) | while read -r name; do \
-	    if [ -d "$(DEPS_DIR)/$$name/data" ]; then \
-		echo "Removing local data for $$name..."; \
-		rm -rf $(DEPS_DIR)/$$name/data; \
-	    fi \
-	done
+  down:
+    @echo "🔥 Bringing down all services..."
+    ./$(DEPS_DIR)/tools-docker-compose/scripts/manage-stacks.sh down $(MANIFEST)
 
-    restart: down up
+  clean:
+    @read -p "This will stop all services and permanently remove all local data for this supergraph. Are you sure? (y/N) " confirm && [ $${confirm:-N} = y ] || exit 1
+    @docker network rm $(SHARED_NETWORK_NAME) 2>/dev/null || true
 
-    deps:
-        @echo "🔄 Syncing component repositories from $(MANIFEST)..."
-        ./$(DEPS_DIR)/tools-docker-compose/scripts/sync-deps.sh $(MANIFEST) $(DEPS_DIR)
+  restart: down up
+
+  deps:
+    @echo "🔄 Syncing component repositories from $(MANIFEST)..."
+    ./$(DEPS_DIR)/tools-docker-compose/scripts/sync-deps.sh $(MANIFEST) $(DEPS_DIR)
     
-    seed: deps
-        @echo "🌱 Seeding data for stateful services..."
-        ./$(DEPS_DIR)/tools-docker-compose/scripts/manage-stacks.sh seed $(MANIFEST)
+  seed: deps
+    @echo "🌱 Seeding data for stateful services..."
+    ./$(DEPS_DIR)/tools-docker-compose/scripts/manage-stacks.sh seed $(MANIFEST)
 
-    supergraph: deps
-        @echo "✍️ Rendering supergraph artifact..."
-        # This requires a mesh.config.js in the supergraph root
-        npx @graphql-mesh/compose-cli --config ./mesh.config.js > $(SUPERGRAPH_SDL)
+  supergraph: deps
+    @echo "✍️ Rendering supergraph artifact..."
+    npx @graphql-mesh/compose-cli --config ./mesh.config.js > $(SUPERGRAPH_SDL)
 
-    ps:
-        @echo "📊 Status for stack: $(stack)"
-        ./$(DEPS_DIR)/tools-docker-compose/scripts/manage-stacks.sh ps $(MANIFEST) $(stack)
+  ps:
+    @echo "📊 Status for stack: $(stack)"
+    ./$(DEPS_DIR)/tools-docker-compose/scripts/manage-stacks.sh ps $(MANIFEST) $(stack)
 
-    logs:
-        @echo "📜 Tailing logs for stack: $(stack)..."
-        ./$(DEPS_DIR)/tools-docker-compose/scripts/manage-stacks.sh logs $(MANIFEST) $(stack)
-    ```
+  logs:
+    @echo "📜 Tailing logs for stack: $(stack)..."
+    ./$(DEPS_DIR)/tools-docker-compose/scripts/manage-stacks.sh logs $(MANIFEST) $(stack)
+  ```
 3.  Create the dependency sync script at `tools-docker-compose/scripts/sync-deps.sh`:
     ```bash
     #!/bin/bash
@@ -197,64 +184,53 @@ This plan is designed to be executed sequentially by an engineer. It assumes the
     done
     ```
 4.  Create the stack management script at `tools-docker-compose/scripts/manage-stacks.sh`:
-    ```bash
-    #!/bin/bash
-    set -e
-    ACTION=$1
-    MANIFEST=$2
-    PERSISTENCE_MODE=${3:-bind}
-    STACK=${4:-all}
-    SUPERGRAPH_NAME=$(basename $(pwd))
+  ```bash
+  #!/bin/bash
+  set -e
+  ACTION=$1
+  MANIFEST=$2
+  PERSISTENCE_MODE=${3:-bind}
+  STACK=${4:-all}
+  SUPERGRAPH_NAME=$(yq e '.name' graphtastic.deps.yml)
 
-    # For 'up' and 'down', we aggregate files for better performance and dependency resolution.
-    if [[ "$ACTION" == "up" || "$ACTION" == "down" ]]; then
-        COMPOSE_FILES=""
-        # Filter for components of type 'spoke'
-        SPOKES=$(yq e '.components[] | select(.type == "spoke") | .name' $MANIFEST)
-        for name in $SPOKES; do
-            COMPOSE_FILE="./.deps/$name/compose.yaml"
-            if [ -f "$COMPOSE_FILE" ]; then
-                COMPOSE_FILES+="-f $COMPOSE_FILE "
+  # This script now iterates for all actions to ensure project isolation.
+  SPOKES=$(yq e '.components[] | select(.type == "spoke") | .name' $MANIFEST)
+
+  for name in $SPOKES; do
+    if [ "$STACK" = "all" ] || [ "$STACK" = "$name" ]; then
+      # Each spoke is launched as a separate Docker Compose project for isolation
+      COMPOSE_FILE="./.deps/$name/compose.yaml"
+      if [ -f "$COMPOSE_FILE" ]; then
+        PROJECT_NAME="${SUPERGRAPH_NAME}_$name"
+        case "$ACTION" in
+          up)
+            echo "Bringing up $name as project $PROJECT_NAME..."
+            PERSISTENCE_MODE=$PERSISTENCE_MODE docker compose -p $PROJECT_NAME -f $COMPOSE_FILE up -d
+            ;;
+          down)
+            echo "Bringing down $name as project $PROJECT_NAME..."
+            PERSISTENCE_MODE=$PERSISTENCE_MODE docker compose -p $PROJECT_NAME -f $COMPOSE_FILE down
+            ;;
+          ps|logs)
+            echo "Showing $ACTION for $name (project $PROJECT_NAME)..."
+            PERSISTENCE_MODE=$PERSISTENCE_MODE docker compose -p $PROJECT_NAME -f $COMPOSE_FILE $ACTION
+            ;;
+          seed)
+            SPOKE_MAKEFILE="./.deps/$name/Makefile"
+            if [ -f "$SPOKE_MAKEFILE" ] && grep -q "^seed:" "$SPOKE_MAKEFILE"; then
+              echo "--- Seeding data for $name ---"
+              (cd "./.deps/$name" && make seed)
             fi
-        done
-
-        OVERRIDE_FILE="./compose.override.yaml"
-        if [ -f "$OVERRIDE_FILE" ]; then
-            COMPOSE_FILES+="-f $OVERRIDE_FILE "
-        fi
-
-        if [ -n "$COMPOSE_FILES" ]; then
-            echo "Executing '$ACTION' for project '$SUPERGRAPH_NAME'..."
-            PERSISTENCE_MODE=$PERSISTENCE_MODE docker compose -p $SUPERGRAPH_NAME $COMPOSE_FILES $ACTION -d
-        fi
-        exit 0
+            ;;
+          *)
+            echo "Unknown action: $ACTION"
+            exit 1
+            ;;
+        esac
+      fi
     fi
-
-    # For other commands (logs, ps, seed), iterate to target individual projects/services.
-    SPOKES=$(yq e '.components[] | select(.type == "spoke") | .name' $MANIFEST)
-    for name in $SPOKES; do
-        if [ "$STACK" = "all" ] || [ "$STACK" = "$name" ]; then
-            COMPOSE_FILE="./.deps/$name/compose.yaml"
-            if [ -f "$COMPOSE_FILE" ]; then
-                PROJECT_NAME="${SUPERGRAPH_NAME}"
-
-                if [[ "$ACTION" == "seed" ]]; then
-                    SPOKE_MAKEFILE="./.deps/$name/Makefile"
-                    if [ -f "$SPOKE_MAKEFILE" ] && grep -q "^seed:" "$SPOKE_MAKEFILE"; then
-                        echo "--- Seeding data for $name ---"
-                        (cd "./.deps/$name" && make seed)
-                    fi
-                else
-                    # For ps and logs, we target the entire project if 'stack' matches
-                    echo "Executing '$ACTION' for project '$PROJECT_NAME' (filtered to '$name' services)..."
-                    # Get service names from the specific compose file
-                    SERVICES=$(yq e '.services | keys | .[]' $COMPOSE_FILE)
-                    PERSISTENCE_MODE=$PERSISTENCE_MODE docker compose -p $PROJECT_NAME $ACTION $SERVICES
-                fi
-            fi
-        fi
-    done
-    ```
+  done
+  ```
 5.  Make scripts executable: `chmod +x tools-docker-compose/scripts/*.sh`
 
 **Task 0.2: Create `tools-subgraph-core` Repository**
@@ -750,9 +726,11 @@ This plan is designed to be executed sequentially by an engineer. It assumes the
         ```
     *   Update the corresponding `schema.graphql` file.
     *   Commit and push these changes to the `subgraph-authors` remote repository.
-5.  **Execute and Verify:**
-    *   Navigate back to the `supergraph-cncf` directory: `cd ../supergraph-cncf`
-    *   `make supergraph`
+6.  **Execute and Verify:**
+  *   From the `supergraph-cncf` directory:
+  *   The query should succeed, demonstrating that the gateway was able to fetch the `blog` and its `authorId` from the blogs subgraph, and then use that `id` to fetch the `name` from the authors subgraph. This completes the minimal viable federation.
+    
+  *(No need to create the shared network manually; this is now automated.)*
     *   `make up` (This will start all services and automatically run `make seed` on the `subgraph-dgraph-static` Spoke)
     *   Run a federated query against `http://localhost:4000/graphql`:
         ```graphql
