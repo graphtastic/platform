@@ -49,9 +49,8 @@ divided into two parts:
     - [Phase 3: Complex Stateful Backend (Dynamic Data Ingestion)](#phase-3-complex-stateful-backend-dynamic-data-ingestion)
       - [Task 3.1: Create `subgraph-dgraph-gharchive` Spoke](#task-31-create-subgraph-dgraph-gharchive-spoke)
       - [Task 3.2: Integrate `subgraph-dgraph-gharchive` into `supergraph-cncf`](#task-32-integrate-subgraph-dgraph-gharchive-into-supergraph-cncf)
-    - [Phase 4: Advanced Composite Spoke (ETL Pipeline)](#phase-4-advanced-composite-spoke-etl-pipeline)
-      - [Task 4.1: Create `subgraph-dgraph-software-supply-chain` Spoke](#task-41-create-subgraph-dgraph-software-supply-chain-spoke)
-      - [Task 4.2: Integrate into `supergraph-cncf`](#task-42-integrate-into-supergraph-cncf)
+    - [Phase 4: Advanced Schema Correction (The GUAC Case Study)](#phase-4-advanced-schema-correction-the-guac-case-study)
+      - [Task 4.1: Create `subgraph-mesh-guac` (The Corrective Lens)](#task-41-create-subgraph-mesh-guac-the-corrective-lens)
     - [Phase 5: Production Hardening and Polish](#phase-5-production-hardening-and-polish)
       - [Task 5.1: Supergraph CI/CD Hardening](#task-51-supergraph-cicd-hardening)
       - [Task 5.2: Secret Management Implementation](#task-52-secret-management-implementation)
@@ -1338,118 +1337,75 @@ dynamic data loading pipeline from an external source (`gharchive`).
 
 ---
 
-### Phase 4: Advanced Composite Spoke (ETL Pipeline)
+### Phase 4: Advanced Schema Correction (The GUAC Case Study)
 
-[ ] Phase 4: Advanced Composite Spoke (ETL Pipeline)
+[ ] Phase 4: Advanced Schema Correction (The GUAC Case Study)
 
-**Goal:** Implement the complex `software-supply-chain` Spoke, which is itself a
-composite system involving an external data source (GUAC) and a sophisticated
-ETL process.
+**Goal:** Implement the complex `software-supply-chain` vision by creating two distinct Spokes that separate the concerns of API correction and data persistence, fully realizing the decoupled ETL pattern from `design--guac-to-dgraph.md`.
 
-#### Task 4.1: Create `subgraph-dgraph-software-supply-chain` Spoke
+#### Task 4.1: Create `subgraph-mesh-guac` (The Corrective Lens)
 
-[ ] Task 4.1: Create `subgraph-dgraph-software-supply-chain` Spoke
+[ ] Task 4.1: Create `subgraph-mesh-guac` (The Corrective Lens)
 
-1. **Instantiate the Spoke Repository:** Create a new repository named
-    `subgraph-dgraph-software-supply-chain` from the
-    `graphtastic/subgraph-dgraph-static` template and clone it locally.
-2. Navigate into the new directory: `cd subgraph-dgraph-software-supply-chain`
-3. Update the Spoke's `compose.yaml`. For isolated development, it will run its
-    own local instances of Dgraph and GUAC. Use non-conflicting ports (e.g.,
-    8083 for Dgraph alpha, 8085 for GUAC GraphQL).
+**Goal:** Create a Spoke that wraps the raw GUAC API and uses the Transformation Sidecar pattern to expose a corrected, modern, and federation-compliant GraphQL API.
 
-    ```yaml
-    # In subgraph-dgraph-software-supply-chain/compose.yaml
+1. **Instantiate the Spoke Repository:** Create a new repository named `subgraph-mesh-guac` from the `template-spoke-mesh` template and clone it locally.
+2. **Update the Spoke's `compose.yaml`:** This file will define the full GUAC stack on an internal, default network, and the Mesh sidecar as the only service exposed to the external network.
+3.  
+
+```yaml
     version: "3.8"
     services:
-      # Dgraph Zero, Alpha, Ratel services on non-conflicting ports (e.g. 8083)
-      # ... (Copy from subgraph-dgraph-static/compose.yaml and update ports)
-
-      # GUAC services for local development
-      guac-postgres:
-        image: postgres:13
-        container_name: guac_postgres_local
-        # ... env vars, volumes ...
+      # The Mesh Sidecar (Public Interface)
+      mesh-gateway:
+        image: ghcr.io/the-guild-org/graphql-mesh/mesh-gateway:latest
+        ports: ["${GUAC_PORT:-8085}:4000"]
+        volumes: ["./.meshrc.yml:/app/.meshrc.yml"]
         networks:
-          - default # GUAC services communicate on their own internal network
-      guac-nats:
-        image: nats:2.9
-        container_name: guac_nats_local
-        networks:
-          - default
-      # ... other GUAC collector/assembler services ...
-      guac-graphql:
-        image: guacsec/guac-graphql:latest # Use official GUAC image
-        container_name: guac_graphql_local
-        ports: ["8085:8080"] # Expose GUAC GraphQL API for the ETL script to use on localhost
-        networks:
-          - default
-
+          - default # Connects to GUAC internally
+          - graphtastic_net # Exposes itself to the supergraph
+      # The Internal GUAC Stack
+      guac-api:
+        image: guacsec/guac-graphql:latest
+        # ... depends_on, env vars ...
+        networks: [default] # Internal only
+      # ... other GUAC services (postgres, nats, etc.) on the 'default' network ...
     networks:
       graphtastic_net:
         name: ${SHARED_NETWORK_NAME:-graphtastic_net}
         external: true
-    ```
+      default:
+        driver: bridge
+  ```
 
-4. Create the ETL script directory: `mkdir ./etl`
-5. Implement the ETL script (`etl/index.js`) and any necessary schema
-    augmentation logic as detailed in `design--guac-to-dgraph.md`. This script
-    will be significantly more complex, performing a two-stage extraction
-    (Nodes, then Edges) from `http://localhost:8085` (the exposed GUAC port) and
-    writing to an RDF file inside the `./data` directory.
-6. Update the Spoke's `Makefile` to orchestrate the entire ETL process and add
-    the conventional `seed` target.
-
-    ```makefile
-    # subgraph-dgraph-software-supply-chain/Makefile
-    include ../tools-subgraph-core/Makefile.subgraph.master
-
-    .PHONY: etl seed
-
-    etl:
-        @echo "Running GUAC to Dgraph ETL process..."
-        # 1. Run the extractor script to query GUAC and generate guac-data.rdf.gz
-        node etl/index.js --source-url http://localhost:8085 --output-file ./data/guac-data.rdf.gz
-
-        # 2. Use Dgraph Live Loader to ingest the RDF file
-        docker compose exec alpha dgraph live --files /dgraph/guac-data.rdf.gz --alpha alpha:7080 --zero zero:5080
-
-    seed: etl
-    ```
-
-7. Commit and push these changes to the `subgraph-dgraph-software-supply-chain`
-    repository.
-
-#### Task 4.2: Integrate into `supergraph-cncf`
-
-[ ] Task 4.2: Integrate into `supergraph-cncf`
-
-1. Navigate to the `supergraph-cncf` directory.
-2. Add the Spoke to `graphtastic.deps.yml`.
+5. **Implement the Mesh Transformation Pipeline in `.meshrc.yml`:** This configuration file will perform the surgical corrections on the GUAC schema.
 
     ```yaml
-      # ... existing components
-      - name: subgraph-dgraph-software-supply-chain
-        git: ../subgraph-dgraph-software-supply-chain
-        version: main
-        type: spoke
+    sources:
+      - name: GUAC
+        handler:
+          graphql:
+            endpoint: http://guac-api:8080/query
+        transforms:
+          # Add custom resolvers to synthesize IDs and replace unions
+          - resolvers:
+              # ... resolver logic to create global IDs and map union types to a new interface ...
+          # Filter out the old, problematic parts of the schema
+          - filterSchema:
+              # ... rules to remove original unions and id fields ...
     ```
 
-3. Update `mesh.config.js`, adding a source for the software supply chain data.
+6. **Create the Decoupled `Makefile`:** This `Makefile` will provide an `export-rdf` target that runs the ETL script against its own internal API.
 
-    ```javascript
-    // ... existing sources
-    {
-      name: 'supplychain',
-      handler: {
-        graphql: { endpoint: 'http://alpha:8080/graphql' }
-      }
-    },
+    ```makefile
+    .PHONY: export-rdf
+    export-rdf:
+        @echo "Exporting GUAC graph to RDF artifact..."
+        # This command runs the standalone ETL tool
+        docker run --rm --network=host graphtastic-rdf-exporter \
+            --source-url http://localhost:8085/graphql \
+            --output-file ./dist/guac.rdf.gz
     ```
-
-4. Re-render the supergraph (`make supergraph`) and restart (`make up`).
-5. Verify with a complex query against `http://localhost:4000/graphql` joining
-    data across multiple subgraphs to prove the integration is successful.
 
 ---
 
