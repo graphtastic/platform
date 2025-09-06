@@ -51,6 +51,7 @@ divided into two parts:
       - [Task 3.2: Integrate `subgraph-dgraph-gharchive` into `supergraph-cncf`](#task-32-integrate-subgraph-dgraph-gharchive-into-supergraph-cncf)
     - [Phase 4: Advanced Schema Correction (The GUAC Case Study)](#phase-4-advanced-schema-correction-the-guac-case-study)
       - [Task 4.1: Create `subgraph-mesh-guac` (The Corrective Lens)](#task-41-create-subgraph-mesh-guac-the-corrective-lens)
+      - [Task 4.2: Create `graphtastic-rdf-exporter` CLI Tool](#task-42-create-graphtastic-rdf-exporter-cli-tool)
     - [Phase 5: Production Hardening and Polish](#phase-5-production-hardening-and-polish)
       - [Task 5.1: Supergraph CI/CD Hardening](#task-51-supergraph-cicd-hardening)
       - [Task 5.2: Secret Management Implementation](#task-52-secret-management-implementation)
@@ -1405,6 +1406,16 @@ dynamic data loading pipeline from an external source (`gharchive`).
             --source-url http://localhost:8085/graphql \
             --output-file ./dist/guac.rdf.gz
     ```
+
+#### Task 4.2: Create `graphtastic-rdf-exporter` CLI Tool
+
+[ ] Task 4.2: Create `graphtastic-rdf-exporter` CLI Tool
+
+**Goal:** Create a standalone, reusable CLI tool for exporting data from a Graphtastic-compliant GraphQL API to a Dgraph-compatible RDF artifact.
+
+1. **Initialize a new Node.js/TypeScript Project:** This is not a Spoke, but a standalone tool. Create a new repository for it.
+2. **Implement the Core Logic:** The script will implement the two-phase "Nouns then Verbs" extraction process detailed in `design--guac-to-dgraph.md`. It will be configurable via environment variables and CLI flags.
+3. **Containerize the Tool:** Create a `Dockerfile` for the tool so it can be easily run in CI environments or via `docker run` commands, as shown in the `subgraph-mesh-guac` Makefile.
 
 ---
 
