@@ -1,12 +1,13 @@
-*   **`template-spoke-dgraph`:** A repository template for bootstrapping new Dgraph-backed Spokes.
-*   **`template-spoke-mesh`:** A repository template for bootstrapping new Spokes that use the Transformation Sidecar pattern with GraphQL Mesh.
 # The Graphtastic Platform Tome (Declarative Federation Edition)
 
-- **Version:** 8.3
-- **Date:** September 5, 2025
+- **Version:** 8.4
+- **Date:** September 6, 2025
 - **Status:** Approved Architectural Blueprint
 
 ### **Document Changelog**
+
+*   **v8.4**:
+    * **Formalized Transformation Sidecar Pattern:** Added a new section (Sec 4.6) to define and document the "Transformation Sidecar Pattern," where GraphQL Mesh is used within a Spoke to correct, augment, or federate a backend service before exposing it to the supergraph. This is now a core, reusable pattern for the platform.
 
 *   **v8.3:**
     *   **Enhanced Governance & Tooling:** Introduced the `tools-subgraph-core` repository to centralize subgraph tooling, CI workflows, and `Makefile` targets, promoting ecosystem-wide consistency.
@@ -185,6 +186,8 @@ To ensure consistency and clarity across the ecosystem, all repositories and fil
 *   **`federated-graph-core`:** The special-purpose Spoke repository that contains the core platform services.
 *   **`tools-{type}`:** A repository containing reusable orchestration or governance logic (e.g., `tools-docker-compose`, `tools-subgraph-core`).
 *   **`template-{type}`:** A repository template for bootstrapping new components (e.g., `template-supergraph`, `template-subgraph`).
+*   **`template-spoke-dgraph`**: A repository template for bootstrapping new Dgraph-backed Spokes.
+*   **`template-spoke-mesh`**: A repository template for bootstrapping new Spokes that use the Transformation Sidecar pattern with GraphQL Mesh.
 
 #### **3.4 Architectural Precepts**
 
@@ -287,6 +290,46 @@ sequenceDiagram
     BlogsSubgraph-->>-HiveGateway: { _entities: [ { blogs: [ { title: 'First Post' } ] } ] }
     HiveGateway->>HiveGateway: Reassemble Response
     HiveGateway-->>-Client: Complete JSON Response
+```
+
+#### **4.6 Advanced Spoke Patterns: The Transformation Sidecar**
+
+While many Spokes directly expose their backend service to the shared network, a more advanced and powerful pattern is required for integrating non-compliant, legacy, or complex services. The **Transformation Sidecar Pattern** encapsulates this complexity within the Spoke, preserving a clean contract with the supergraph.
+In this pattern, the Spoke is composed of two parts:
+
+1.  **An Internal Backend Service:** The "raw" data source (e.g., the GUAC API stack, a legacy REST service). This service is confined to the Spoke's internal Docker network and is **not** exposed to the shared `graphtastic_net`.
+
+2.  **A Public Mesh Gateway:** A GraphQL Mesh service that acts as a "sidecar." This is the Spoke's sole public interface, attaching to `graphtastic_net`. It is configured to connect to the internal backend and apply a series of in-memory transformations to correct, augment, or federate the schema before presenting it to the Hive Gateway.
+This pattern is essential for maintaining architectural integrity, allowing the platform to onboard virtually any data source by wrapping it in a compliant, federated interface.
+
+**Figure 4.3: The Transformation Sidecar Pattern**
+
+```mermaid
+graph TD
+    subgraph "Supergraph Runtime"
+        direction LR
+        SupergraphGateway[Hive Gateway]
+        SharedNet[("graphtastic_net")]
+        SupergraphGateway -- "Connects to" --> SharedNet
+    end
+
+    subgraph "Spoke Boundary"
+        InternalNet(("(Spoke's Internal Network)"))
+        
+        subgraph "Public Interface (Sidecar)"
+            Mesh[GraphQL Mesh Gateway]
+        end
+
+        subgraph "Internal Backend"
+            Backend[Raw Backend Service]
+        end
+        
+        Mesh -- "Attaches to" --> SharedNet
+        Mesh -- "Wraps & Transforms" --> Backend
+        Backend -- "Lives on" --> InternalNet
+    end
+
+    SupergraphGateway -- "Federates with" --> Mesh
 ```
 
 ---
