@@ -72,8 +72,8 @@ divided into two parts:
 - [ ] [Task 2.2: Integrate `subgraph-dgraph-static` into `supergraph-cncf`](#task-22-integrate-subgraph-dgraph-static-into-supergraph-cncf)
 - [ ] [Task 3.1: Create `subgraph-dgraph-gharchive` Spoke](#task-31-create-subgraph-dgraph-gharchive-spoke)
 - [ ] [Task 3.2: Integrate `subgraph-dgraph-gharchive` into `supergraph-cncf`](#task-32-integrate-subgraph-dgraph-gharchive-into-supergraph-cncf)
-- [ ] [Task 4.1: Create `subgraph-dgraph-software-supply-chain` Spoke](#task-41-create-subgraph-dgraph-software-supply-chain-spoke)
-- [ ] [Task 4.2: Integrate into `supergraph-cncf`](#task-42-integrate-into-supergraph-cncf)
+- [ ] [Task 4.1: Create `subgraph-mesh-guac` (The Corrective Lens)](#task-41-create-subgraph-mesh-guac-the-corrective-lens)
+- [ ] [Task 4.2: Integrate into `supergraph-cncf`](#task-22-integrate-subgraph-dgraph-static-into-supergraph-cncf)
 - [ ] [Task 5.1: Supergraph CI/CD Hardening](#task-51-supergraph-cicd-hardening)
 - [ ] [Task 5.2: Secret Management Implementation](#task-52-secret-management-implementation)
 - [ ] [Task 5.3: Configurable Persistence Implementation](#task-53-configurable-persistence-implementation)
@@ -1351,7 +1351,6 @@ dynamic data loading pipeline from an external source (`gharchive`).
 
 1. **Instantiate the Spoke Repository:** Create a new repository named `subgraph-mesh-guac` from the `template-spoke-mesh` template and clone it locally.
 2. **Update the Spoke's `compose.yaml`:** This file will define the full GUAC stack on an internal, default network, and the Mesh sidecar as the only service exposed to the external network.
-3.  
 
 ```yaml
     version: "3.8"
@@ -1378,7 +1377,7 @@ dynamic data loading pipeline from an external source (`gharchive`).
         driver: bridge
   ```
 
-5. **Implement the Mesh Transformation Pipeline in `.meshrc.yml`:** This configuration file will perform the surgical corrections on the GUAC schema.
+3. **Implement the Mesh Transformation Pipeline in `.meshrc.yml`:** This configuration file will perform the surgical corrections on the GUAC schema.
 
     ```yaml
     sources:
@@ -1395,7 +1394,7 @@ dynamic data loading pipeline from an external source (`gharchive`).
               # ... rules to remove original unions and id fields ...
     ```
 
-6. **Create the Decoupled `Makefile`:** This `Makefile` will provide an `export-rdf` target that runs the ETL script against its own internal API.
+4. . **Create the Decoupled `Makefile`:** This `Makefile` will provide an `export-rdf` target that runs the ETL script against its own internal API.
 
     ```makefile
     .PHONY: export-rdf
