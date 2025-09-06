@@ -261,7 +261,7 @@ This plan is designed to be executed sequentially by an engineer. It assumes the
             run: make validate-federation # This command is provided by the included Makefile
     ```
 
-**Task 0.3: Create `template-subgraph` Repository**
+**Task 0.3: Create `template-spoke-base` Repository**
 
 1.  Create the repository directory: `mkdir -p template-subgraph/.github/workflows`
 2.  Create a placeholder `compose.yaml`:
@@ -284,10 +284,20 @@ This plan is designed to be executed sequentially by an engineer. It assumes the
     # Copy to .env for local development
     ```
 5.  Create a lightweight `Makefile` that includes the master tooling. *Note: This assumes a directory structure where tool repos are peers to Hub repos.*
-    ```makefile
-    # template-subgraph/Makefile
-    include ../tools-subgraph-core/Makefile.subgraph.master
-    ```
+  ```makefile
+  # template-spoke-base/Makefile
+  TOOLS_DIR := ./.tools
+  TOOLS_REPO := https://github.com/graphtastic/tools-subgraph-core.git # Use actual path
+  TOOLS_VERSION := main
+
+  -include $(TOOLS_DIR)/tools-subgraph-core/Makefile.subgraph.master
+
+  .PHONY: tools
+
+  tools:
+    @if [ ! -d "$(TOOLS_DIR)/tools-subgraph-core" ]; then \
+    fi
+  ```
 6.  Create the CI workflow that *calls* the reusable workflow:
     ```yaml
     # template-subgraph/.github/workflows/ci.yml
@@ -302,6 +312,76 @@ This plan is designed to be executed sequentially by an engineer. It assumes the
     ```
 
 **Task 0.4: Create `template-supergraph` Repository**
+#### **Task 0.5: Create `template-spoke-dgraph` Repository**
+
+**Goal:** Create a reusable template for any Spoke backed by Dgraph.
+
+1.  Create the directory: `mkdir template-spoke-dgraph`
+2.  Create a placeholder `schema.graphql` file.
+3.  Create the canonical `compose.yaml` for a Dgraph stack. This version uses the declarative `--schema` flag for provisioning.
+    ```yaml
+    # template-spoke-dgraph/compose.yaml
+    version: "3.8"
+    services:
+      zero:
+        image: dgraph/dgraph:latest
+        volumes:
+          - type: ${PERSISTENCE_MODE:-bind}
+            source: ./data/zero
+            target: /dgraph
+        # ... ports, restart, command ...
+        networks: [graphtastic_net]
+      alpha:
+        image: dgraph/dgraph:latest
+        volumes:
+          - type: ${PERSISTENCE_MODE:-bind}
+            source: ./data/alpha
+            target: /dgraph
+          # Mount the schema file for declarative loading
+          - type: bind
+            source: ./schema.graphql
+            target: /dgraph/schema.graphql
+            read_only: true
+        # ... ports, restart, depends_on ...
+        # Use the --schema flag in the startup command
+        command: dgraph alpha --my=alpha:7080 --zero=zero:5080 --schema /dgraph/schema.graphql
+        networks: [graphtastic_net]
+      # ... ratel service ...
+    networks:
+      graphtastic_net:
+        name: ${SHARED_NETWORK_NAME:-graphtastic_net}
+        external: true
+    ```
+4.  Create a standard `Makefile` for managing this Spoke. The `seed` target is now simplified as schema is applied automatically.
+
+#### **Task 0.6: Create `template-spoke-mesh` Repository**
+
+**Goal:** Create a reusable template for any Spoke using the Transformation Sidecar pattern.
+
+1. Create the repository directory: `mkdir template-spoke-mesh`
+2. Create a placeholder `.meshrc.yml`:
+    ```yaml
+    # template-spoke-mesh/.meshrc.yml
+    sources:
+      - name: MyUpstream
+        handler:
+          graphql:
+            endpoint: http://my-internal-service:8080/graphql
+    ```
+3. Create a `compose.yaml` to run the Mesh gateway:
+    ```yaml
+    # template-spoke-mesh/compose.yaml
+    version: "3.8"
+    services:
+      mesh-gateway:
+        image: ghcr.io/the-guild-org/graphql-mesh/mesh-gateway:latest
+        # ... ports, volumes to mount config, etc ...
+        networks: [graphtastic_net]
+    networks:
+      graphtastic_net:
+        name: ${SHARED_NETWORK_NAME:-graphtastic_net}
+        external: true
+    ```
 
 1.  Create the directory: `mkdir template-supergraph`
 2.  Create a root `Makefile`:
@@ -643,34 +723,42 @@ This plan is designed to be executed sequentially by an engineer. It assumes the
         name: ${SHARED_NETWORK_NAME:-graphtastic_net}
         external: true
     ```
-6.  Update the `Makefile` within the Spoke to manage its lifecycle, including schema/data loading and the conventional `seed` target.
-    ```makefile
-    # subgraph-dgraph-static/Makefile
-    # Assumes tools-subgraph-core is in a peer directory for local development
-    include ../tools-subgraph-core/Makefile.subgraph.master
 
-    .PHONY: up down clean apply-schema load-data seed
+5.5. Create the static dataset at `data.json`. This file contains the data to be loaded.
+  ```json
+  [
+    {"uid": "_:DS9-001", "dgraph.type": "Character", "id": "DS9-001", "name": "Benjamin Sisko", "species": "Human", "affiliation": "Starfleet"},
+    {"uid": "_:DS9-002", "dgraph.type": "Character", "id": "DS9-002", "name": "Kira Nerys", "species": "Bajoran", "affiliation": "Bajoran Militia"},
+    {"uid": "_:TNG-001", "dgraph.type": "Character", "id": "TNG-001", "name": "Jean-Luc Picard", "species": "Human", "affiliation": "Starfleet"}
+  ]
+  ```
 
-    up:
-        docker compose up -d
+6.  Update the `Makefile` within the Spoke to manage its lifecycle, including schema/data loading and the conventional `seed` target. This removes the `curl` of dynamic data and replaces it with a declarative `mutate` of a local file.
 
-    down:
-        docker compose down
+```makefile
+# subgraph-dgraph-static/Makefile
+include ../tools-subgraph-core/Makefile.subgraph.master
 
-    clean: down
-        @echo "🧹 Removing local data..."
-        rm -rf ./data
+.PHONY: up down clean load-data seed
 
-    apply-schema:
-        @echo "Applying GraphQL schema..."
-        curl -X POST localhost:8081/admin/schema --data-binary "@schema.graphql"
+up:
+    docker compose up -d
 
-    load-data:
-        @echo "Loading static character data..."
-        curl -X POST localhost:8081/graphql -H "Content-Type: application/json" -d '{"query": "mutation {\n  addCharacter(input: [\n    {id: \"DS9-001\", name: \"Benjamin Sisko\", species: \"Human\", affiliation: \"Starfleet\"},\n    {id: \"DS9-002\", name: \"Kira Nerys\", species: \"Bajoran\", affiliation: \"Bajoran Militia\"},\n    {id: \"TNG-001\", name: \"Jean-Luc Picard\", species: \"Human\", affiliation: \"Starfleet\"}\n  ]) { numUids }\n}"}'
-    
-    seed: apply-schema load-data
-    ```
+down:
+    docker compose down
+
+clean: down
+    @echo "🧹 Removing local data..."
+    rm -rf ./data
+
+load-data:
+    @echo "Loading static character data from data.json..."
+    # Use the /mutate endpoint for raw JSON loading with commitNow
+    curl -s -X POST localhost:8081/mutate?commitNow=true -H "Content-Type: application/json" -d "@data.json"
+
+seed: load-data
+```
+
 7.  Commit and push these changes to the `subgraph-dgraph-static` repository.
 
 8.  **Standalone Verification:**

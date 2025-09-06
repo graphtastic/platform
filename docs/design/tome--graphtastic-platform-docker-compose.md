@@ -1,3 +1,5 @@
+*   **`template-spoke-dgraph`:** A repository template for bootstrapping new Dgraph-backed Spokes.
+*   **`template-spoke-mesh`:** A repository template for bootstrapping new Spokes that use the Transformation Sidecar pattern with GraphQL Mesh.
 # The Graphtastic Platform Tome (Declarative Federation Edition)
 
 - **Version:** 8.3
