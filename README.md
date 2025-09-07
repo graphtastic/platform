@@ -61,20 +61,12 @@ A request from the Supergraph Gateway travels over the shared network to the Spo
 
 ```mermaid
 graph LR
-    subgraph Supergraph Runtime
-        SupergraphGateway["Supergraph<br/><b>Hive Gateway</b>"]
-    end
+    SupergraphGateway["Supergraph<br/><b>Hive Gateway</b>"]
 
-    subgraph "Spoke Boundary"
+    subgraph "Spoke: Transformation Sidecar"
         direction TB
-        subgraph "Public Interface (on Shared Network)"
-             Mesh["<b>GraphQL Mesh Gateway</b><br/>(Sidecar)"]
-        end
-
-        subgraph "Internal Backend (on Private Network)"
-            Backend["Raw Backend Service<br/>(e.g., REST API)"]
-        end
-
+        Mesh["<b>GraphQL Mesh Gateway</b><br/>(Public Interface on Shared Network)"]
+        Backend["Raw Backend Service<br/>(Internal on Private Network)"]
         Mesh -- "Wraps & Transforms" --> Backend
     end
 
