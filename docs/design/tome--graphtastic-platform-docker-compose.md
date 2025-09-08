@@ -302,7 +302,7 @@ flowchart TD
         ToolsD[[<b>tools-docker-compose</b><br/><i>runtime orchestration</i>]]:::tool
         ToolsS[[<b>tools-subgraph-core</b><br/><i>governance & CI</i>]]:::tool
         Core[<b>federated-graph-core</b><br/><i>core services</i>]:::spoke
-        Blogs[<b>subgraph-blogsn</b><br/><i>data</i>]:::spoke
+        Blogs[<b>subgraph-blogs</b><br/><i>data</i>]:::spoke
     end
 
     %% Create a cleaner visual flow by removing repetitive link labels.
