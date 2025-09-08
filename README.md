@@ -96,4 +96,4 @@ The platform is designed around a declarative, Git-based workflow. The compositi
 
 To understand the complete architectural vision and detailed rationale behind these patterns, please refer to the primary architectural document:
 
-*   **[The Graphtastic Platform Tome](./docs/tome--graphtastic-platform-docker-compose.md)**
+*   **[The Graphtastic Platform Tome](./docs/design/tome--graphtastic-platform-docker-compose.md#)**
