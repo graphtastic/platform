@@ -1010,7 +1010,8 @@ duplication or security risks.
 jobs:
   validate:
     uses: graphtastic/tools-subgraph-core/.github/workflows/subgraph-ci.yml@v1.0.0
-    secrets: inherit```
+    secrets: inherit
+```
 
 ### 8.6 Secret Management
 
