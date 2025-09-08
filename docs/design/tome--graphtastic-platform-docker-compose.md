@@ -261,25 +261,59 @@ tools.
     the starting point for creating new Hubs or Spokes, ensuring they adhere to
     platform conventions from day one.
 
-#### Figure 3.1: The "Hub and Spoke" Architectural Model
+#### Figure 3.1: "Hub and Spoke" Model
 
 ```mermaid
-graph TD
+---
+title: The Graphtastic "Hub and Spoke" Architectural Model
+---
+%%{
+  init: {
+    "theme": "base",
+    "themeVariables": {
+      "primaryColor": "#D6EAF8",
+      "primaryTextColor": "#2E86C1",
+      "primaryBorderColor": "#2E86C1",
+      "lineColor": "#5D6D7E",
+      "secondaryColor": "#E8F8F5",
+      "tertiaryColor": "#FEF9E7"
+    }
+  }
+}%%
+flowchart TD
+    %% Accessible description:
+    %% This diagram illustrates the "Hub and Spoke" model. A "Use Case Repository" (Hub)
+    %% acts as an assembler, defining dependencies on various reusable components (Spokes).
+    %% Spokes include core services, data subgraphs, and orchestration tools.
+
+    %% Define styles using theme-aware classes.
+    %% We will apply these using the nodeId:::className syntax.
+    classDef hub stroke-width:2px;
+    classDef spoke fill:#secondaryColor,stroke:#1ABC9C,stroke-width:2px,color:#148F77;
+    classDef tool fill:#tertiaryColor,stroke:#F4D03F,stroke-width:2px,color:#B7950B;
+
     subgraph "Use Case Repository (Hub)"
-        Hub[<b>supergraph-cncf</b><br/><i>The Assembler</i>]
+        %% Use a Hexagon shape for the assembler/build process.
+        Hub{{<b>supergraph-cncf</b><br/><i>The Assembler</i>}}:::hub
     end
 
     subgraph "Reusable Component Repositories (Spokes & Tools)"
-        ToolsD[<b>tools-docker-compose</b><br/><i>runtime orchestration</i>]
-        ToolsS[<b>tools-subgraph-core</b><br/><i>governance & CI</i>]
-        Core[<b>federated-graph-core</b><br/><i>core services</i>]
-        SSC[<b>subgraph-software-supply-chain</b><br/><i>data</i>]
+        %% Insert <br/> tags to prevent text clipping on long labels.
+        ToolsD[[<b>tools-docker-compose</b><br/><i>runtime orchestration</i>]]:::tool
+        ToolsS[[<b>tools-subgraph-core</b><br/><i>governance & CI</i>]]:::tool
+        Core[<b>federated-graph-core</b><br/><i>core services</i>]:::spoke
+        Blogs[<b>subgraph-blogsn</b><br/><i>data</i>]:::spoke
     end
 
-    Hub -- "Manifest lists dependency on" --> ToolsD
-    Hub -- "Manifest lists dependency on" --> Core
-    Hub -- "Manifest lists dependency on" --> SSC
-    SSC -- "Dev dependency on" --> ToolsS```
+    %% Create a cleaner visual flow by removing repetitive link labels.
+    %% The "Manifest lists dependency on" relationship is clear from the visual grouping.
+    Hub --> ToolsD
+    Hub --> Core
+    Hub --> Blogs
+
+    %% The "Dev dependency on" relationship is still clear due to the flow.
+    Blogs --> ToolsS
+```
 
 ### 3.2 The Developer & Governance Toolkit
 
