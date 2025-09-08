@@ -50,8 +50,8 @@ Only after proving the federation mechanism do we introduce the complexity of a 
 
 - **Rationale:** This progression isolates new challenges at each step.
   - **Phase 2 (`subgraph-dgraph-static`):** This phase focuses *only* on the challenge of integrating Dgraph as a Spoke. By using a static dataset, we are not yet concerned with data pipelines.
-  - **Phase 3 (`subgraph-dgraph-gharchive`):** This phase builds on the now-stable Dgraph pattern and introduces the next challenge: dynamic data ingestion from an external source.
-  - **Phase 4 (`subgraph-dgraph-software-supply-chain`):** The final and most complex phase introduces a sophisticated internal ETL pipeline, leveraging our analysis from `design--guac-to-dgraph.md`. This is tackled last because it relies on all previously validated patterns.
+  - **Phase 3 (`subgraph-dgraph-gharchive`):** This phase builds on the now-stable Dgraph pattern and introduces the next challenge: dynamic data ingestion from an external source (GitHub event data in JSON Lines format from [the GitHub Archive](https://gharchive.org>))
+  - **Phase 4 (`subgraph-dgraph-software-supply-chain`):** The final and most complex phase introduces a sophisticated internal ETL pipeline, transforming GUAC's GraphQL api to make it more suitable for federation and proving out ingestion of RDF nquads. This is tackled last because it relies on all previously validated patterns.
 
 Furthermore, we will leverage Dgraph's native federation compliance. This simplifies the implementation of Dgraph-backed Spokes, as they can expose a federated GraphQL endpoint directly, perfectly aligning with the "Spoke as a black box" principle from the Tome.
 
