@@ -59,12 +59,12 @@ divided into two parts:
 
 ## Task Checklist
 
-- [ ] [Task 0.1: Create `tools-docker-compose` Repository](#task-01-create-tools-docker-compose-repository)
-- [ ] [Task 0.2: Create `tools-subgraph-core` Repository](#task-02-create-tools-subgraph-core-repository)
-- [ ] [Task 0.3: Create `template-spoke-base` Repository](#task-03-create-template-spoke-base-repository)
-- [ ] [Task 0.4: Create `template-supergraph` Repository](#task-04-create-template-supergraph-repository)
-- [ ] [Task 0.5: Create `template-spoke-dgraph` Repository](#task-05-create-template-spoke-dgraph-repository)
-- [ ] [Task 0.6: Create `template-spoke-mesh` Repository](#task-06-create-template-spoke-mesh-repository)
+- [x] [Task 0.1: Create `tools-docker-compose` Repository](#task-01-create-tools-docker-compose-repository)
+- [x] [Task 0.2: Create `tools-subgraph-core` Repository](#task-02-create-tools-subgraph-core-repository)
+- [x] [Task 0.3: Create `template-spoke-base` Repository](#task-03-create-template-spoke-base-repository)
+- [x] [Task 0.4: Create `template-supergraph` Repository](#task-04-create-template-supergraph-repository)
+- [x] [Task 0.5: Create `template-spoke-dgraph` Repository](#task-05-create-template-spoke-dgraph-repository)
+- [x] [Task 0.6: Create `template-spoke-mesh` Repository](#task-06-create-template-spoke-mesh-repository)
 - [ ] [Task 1.1: Create `subgraph-blogs`](#task-11-create-subgraph-blogs)
 - [ ] [Task 1.2: Create `subgraph-authors`](#task-12-create-subgraph-authors)
 - [ ] [Task 1.3: Create `federated-graph-core`](#task-13-create-federated-graph-core)
@@ -266,14 +266,14 @@ single parent directory.
 
 ### Phase 0: The Developer Control Plane
 
-[ ] Phase 0: The Developer Control Plane
+[x] Phase 0: The Developer Control Plane
 
 **Goal:** Create the foundational tooling that will govern and orchestrate all
 subsequent development.
 
 #### Task 0.1: Create `tools-docker-compose` Repository
 
-[ ] Task 0.1: Create `tools-docker-compose` Repository
+[x] Task 0.1: Create `tools-docker-compose` Repository
 
 1. Create the repository directory: `mkdir -p tools-docker-compose/scripts`
 2. Create the master `Makefile` at `tools-docker-compose/Makefile.master`:
@@ -430,7 +430,7 @@ subsequent development.
 
 #### Task 0.2: Create `tools-subgraph-core` Repository
 
-[ ] Task 0.2: Create `tools-subgraph-core` Repository
+[x] Task 0.2: Create `tools-subgraph-core` Repository
 
 1. Create the repository directory: `mkdir -p tools-subgraph-core/.github/workflows`
 2. Create a master Makefile for subgraphs at
@@ -465,7 +465,7 @@ subsequent development.
 
 #### Task 0.3: Create `template-spoke-base` Repository
 
-[ ] Task 0.3: Create `template-spoke-base` Repository
+[x] Task 0.3: Create `template-spoke-base` Repository
 
 1. Create the repository directory: `mkdir -p template-subgraph/.github/workflows`
 2. Create a placeholder `compose.yaml`:
@@ -527,7 +527,7 @@ subsequent development.
 
 #### Task 0.4: Create `template-supergraph` Repository
 
-[ ] Task 0.4: Create `template-supergraph` Repository
+[x] Task 0.4: Create `template-supergraph` Repository
 
 1. Create the directory: `mkdir template-supergraph`
 2. Create a root `Makefile`:
@@ -551,7 +551,7 @@ subsequent development.
 
 #### Task 0.5: Create `template-spoke-dgraph` Repository
 
-[ ] Task 0.5: Create `template-spoke-dgraph` Repository
+[x] Task 0.5: Create `template-spoke-dgraph` Repository
 
 **Goal:** Create a reusable template for any Spoke backed by Dgraph.
 
@@ -599,7 +599,7 @@ subsequent development.
 
 #### Task 0.6: Create `template-spoke-mesh` Repository
 
-[ ] Task 0.6: Create `template-spoke-mesh` Repository
+[x] Task 0.6: Create `template-spoke-mesh` Repository
 
 **Goal:** Create a reusable template for any Spoke using the Transformation
 Sidecar pattern.
