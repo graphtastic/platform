@@ -102,10 +102,10 @@ Throughout this implementation plan, the `version` field in the `graphtastic.dep
 This checklist provides a high-level overview of the implementation phases. Each item links to a detailed, actionable sub-plan.
 
 - [ ] **Phase 1: Foundation and Stateless Spoke**
-  - [ ] [Detailed Plan](./plan--hub-and-spokes-01-foundation-and-stateless-spoke.md)
+  - [ ] [plan--hub-and-spokes-01-foundation-and-stateless-spoke.md](./plan--hub-and-spokes-01-foundation-and-stateless-spoke.md)
 - [ ] **Phase 2: Stateful Spoke with Dgraph**
-  - [ ] [Detailed Plan](./plan--hub-and-spokes-02-stateful-spoke-with-dgraph.md)
+  - [ ] [plan--hub-and-spokes-02-stateful-spoke-with-dgraph.md](./plan--hub-and-spokes-02-stateful-spoke-with-dgraph.md)
 - [ ] **Phase 3: Minimal Viable Supergraph**
-  - [ ] [Detailed Plan](./plan--hub-and-spokes-03-minimal-viable-supergraph.md)
+  - [ ] [plan--hub-and-spokes-03-minimal-viable-supergraph.md](./plan--hub-and-spokes-03-minimal-viable-supergraph.md)
 - [ ] **Phase 4: Advanced Patterns and Platform Hardening**
-  - [ ] [Detailed Plan](./plan--hub-and-spokes-04-advanced-patterns-and-platform-hardening.md)
+  - [ ] [plan--hub-and-spokes-04-advanced-patterns-and-platform-hardening.md](./plan--hub-and-spokes-04-advanced-patterns-and-platform-hardening.md)
