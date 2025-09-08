@@ -40,59 +40,59 @@ This plan is designed to be executed sequentially. It assumes you have a working
 
 1.  From within the `subgraph-mesh-guac` repository, update the `compose.yaml`. This file will define the full GUAC stack on an internal, default network, and the Mesh sidecar as the only service exposed to the external network.
 
-    ```yaml
-    version: "3.8"
-    services:
-      # The Mesh Sidecar (Public Interface)
-      mesh-gateway:
-        image: ghcr.io/the-guild-org/graphql-mesh/mesh-gateway:latest
-        ports: ["${GUAC_PORT:-8085}:4000"]
-        volumes: ["./.meshrc.yml:/app/.meshrc.yml"]
-        networks:
-          - default # Connects to GUAC internally
-          - graphtastic_net # Exposes itself to the supergraph
-      # The Internal GUAC Stack
-      guac-api:
-        image: guacsec/guac-graphql:latest
-        # ... depends_on, env vars ...
-        networks: [default] # Internal only
-      # ... other GUAC services (postgres, nats, etc.) on the 'default' network ...
-    networks:
-      graphtastic_net:
-        name: ${SHARED_NETWORK_NAME:-graphtastic_net}
-        external: true
-      default:
-        driver: bridge
-    ```
+  ```yaml
+  version: "3.8"
+  services:
+    # The Mesh Sidecar (Public Interface)
+    mesh-gateway:
+      image: ghcr.io/the-guild-org/graphql-mesh/mesh-gateway:latest
+      ports: ["${GUAC_PORT:-8085}:4000"]
+      volumes: ["./.meshrc.yml:/app/.meshrc.yml"]
+      networks:
+        - default # Connects to GUAC internally
+        - graphtastic_net # Exposes itself to the supergraph
+    # The Internal GUAC Stack
+    guac-api:
+      image: guacsec/guac-graphql:latest
+      # ... depends_on, env vars ...
+      networks: [default] # Internal only
+    # ... other GUAC services (postgres, nats, etc.) on the 'default' network ...
+  networks:
+    graphtastic_net:
+      name: ${SHARED_NETWORK_NAME:-graphtastic_net}
+      external: true
+    default:
+      driver: bridge
+  ```
 
 2.  Implement the Mesh Transformation Pipeline in `.meshrc.yml`. This configuration file will perform surgical corrections on the GUAC schema.
 
-    ```yaml
-    sources:
-      - name: GUAC
-        handler:
-          graphql:
-            endpoint: http://guac-api:8080/query
-        transforms:
-          # Add custom resolvers to synthesize IDs and replace unions
-          - resolvers:
-              # ... resolver logic to create global IDs and map union types to a new interface ...
-          # Filter out the old, problematic parts of the schema
-          - filterSchema:
-              # ... rules to remove original unions and id fields ...
-    ```
+  ```yaml
+  sources:
+    - name: GUAC
+      handler:
+        graphql:
+          endpoint: http://guac-api:8080/query
+      transforms:
+        # Add custom resolvers to synthesize IDs and replace unions
+        - resolvers:
+            # ... resolver logic to create global IDs and map union types to a new interface ...
+        # Filter out the old, problematic parts of the schema
+        - filterSchema:
+            # ... rules to remove original unions and id fields ...
+  ```
 
 3.  Create a `Makefile` that provides an `export-rdf` target.
 
-    ```makefile
-    .PHONY: export-rdf
-    export-rdf:
-    	@echo "Exporting GUAC graph to RDF artifact..."
-    	# This command runs the standalone ETL tool
-    	docker run --rm --network=host graphtastic-rdf-exporter \
-    		--source-url http://localhost:8085/graphql \
-    		--output-file ./dist/guac.rdf.gz
-    ```
+  ```makefile
+  .PHONY: export-rdf
+  export-rdf:
+    @echo "Exporting GUAC graph to RDF artifact..."
+    # This command runs the standalone ETL tool
+    docker run --rm --network=host graphtastic-rdf-exporter \
+      --source-url http://localhost:8085/graphql \
+      --output-file ./dist/guac.rdf.gz
+  ```
 
 #### Task 4.2: Create `graphtastic-rdf-exporter` CLI Tool
 
@@ -111,65 +111,65 @@ This plan is designed to be executed sequentially. It assumes you have a working
 
 1.  From within the `supergraph-cncf` repository, create the CI workflow file at `.github/workflows/ci.yml`:
 
-    ```yaml
-    name: Supergraph CI
-    on: [pull_request]
-    jobs:
-      validate:
-        runs-on: ubuntu-latest
-        steps:
-          - uses: actions/checkout@v4
-          - name: Setup Node
-            uses: actions/setup-node@v4
-            with: { node-version: '18' }
-          - name: Install Dependencies
-            # Install yq from npm for a self-contained CI environment
-            run: npm install -g @graphql-mesh/compose-cli yq
-          - name: Sync Deps & Render Supergraph
-            run: make supergraph
-          - name: Check for Stale Supergraph Artifact
-            run: |
-              git diff --exit-code supergraph.graphql
-              echo "✅ supergraph.graphql is up-to-date."
-    ```
+  ```yaml
+  name: Supergraph CI
+  on: [pull_request]
+  jobs:
+    validate:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - name: Setup Node
+          uses: actions/setup-node@v4
+          with: { node-version: '18' }
+        - name: Install Dependencies
+          # Install yq from npm for a self-contained CI environment
+          run: npm install -g @graphql-mesh/compose-cli yq
+        - name: Sync Deps & Render Supergraph
+          run: make supergraph
+        - name: Check for Stale Supergraph Artifact
+          run: |
+            git diff --exit-code supergraph.graphql
+            echo "✅ supergraph.graphql is up-to-date."
+  ```
 
 #### Task 5.2: Secret Management Implementation
 
 1.  From within the `federated-graph-core` repository, modify `compose.yaml` to use an environment variable for a database password.
 
-    ```yaml
-    # This is a simplified example. A real Hive stack has many services.
-    # Add this to an existing postgres service definition if one exists,
-    # or add the service if it doesn't.
-    services:
-      postgres:
-        image: postgres:15
-        environment:
-          POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hive} # Default to 'hive' if not set
-    ```
+  ```yaml
+  # This is a simplified example. A real Hive stack has many services.
+  # Add this to an existing postgres service definition if one exists,
+  # or add the service if it doesn't.
+  services:
+    postgres:
+      image: postgres:15
+      environment:
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hive} # Default to 'hive' if not set
+  ```
 
 2.  Create `.env.template` in the `federated-graph-core` repository:
 
-    ```env
-    # Secrets for the federated-graph-core stack
-    # Copy this file to .env and fill in your values for local development.
-    POSTGRES_PASSWORD=
-    ```
+  ```env
+  # Secrets for the federated-graph-core stack
+  # Copy this file to .env and fill in your values for local development.
+  POSTGRES_PASSWORD=
+  ```
 
 #### Task 5.3: Configurable Persistence Implementation
 
 1.  From within a stateful Spoke's repository (e.g., `subgraph-dgraph-static`), modify `compose.yaml` to remove the hardcoded path.
 
-    ```yaml
-    # ...
-    services:
-      alpha:
-        volumes:
-          - type: ${PERSISTENCE_MODE:-bind}
-            source: ./data/alpha # This now works with the PERSISTENCE_MODE var
-            target: /dgraph
-    # ...
-    ```
+  ```yaml
+  # ...
+  services:
+    alpha:
+      volumes:
+        - type: ${PERSISTENCE_MODE:-bind}
+          source: ./data/alpha # This now works with the PERSISTENCE_MODE var
+          target: /dgraph
+  # ...
+  ```
 
 2.  The `manage-stacks.sh` script and `Makefile.master` from **Plan 01** are already designed to pass the `PERSISTENCE_MODE` variable, so no further changes are needed in the orchestration layer. A developer can now run `make up mode=volume` to switch to named volumes.
 
