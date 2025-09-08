@@ -34,7 +34,7 @@ The implementation strategy for the Graphtastic Platform is founded on a core ph
 
 ### 1.1 The "Tools-First" Imperative: Building the Factory Before the Car
 
-The first and most critical decision in our plan is to build the foundational tooling *before* any functional components. As detailed in **Phase 0**, we will first create the `tools-docker-compose`, `tools-subgraph-core`, and `template-*` repositories.
+The first and most critical decision in our plan is to build the foundational tooling *before* any functional components. As detailed in **Phase 0**, we will first create the `tools-docker-compose`, and `tools-subgraph-core` repositories. The `template-*` repo(s) will only be created after we demonstrate end-to-end MVP. We don't want to create templates before this.
 
 - **Rationale:** This approach establishes the complete developer control plane and governance framework from day one. It guarantees that the very first Spoke (`subgraph-blogs`) is built using the same standardized CI pipelines, `Makefile` orchestration from `tools-subgraph-core`, and validation checks as the most complex Spoke that will come later. This front-loading of effort eradicates an entire class of future integration problems and ensures a consistent, high-quality developer experience throughout the project's lifecycle.
 
@@ -62,17 +62,15 @@ For the `subgraph-dgraph-software-supply-chain`, which requires transforming the
 - **Rationale:** This decision directly upholds the architectural precepts of the Tome v8.4.
     1. **It preserves the "Spoke as a Black Box" model.** The Hub does not need to know about the Spoke's internal transformation needs.
     2. **It ensures the Spoke remains "Standalone."** The developers of this Spoke can run and test their entire data pipeline in isolation without needing the `federated-graph-core`.
-    3. **It avoids tight coupling and configuration sprawl** that a centralized Mesh service would create.
+    3. **It avoids tight coupling and configuration sprawl** that a centralized Mesh service would create, and validates the "sidecar" pattern.
 
-### 1.5 Architectural Decision: Solving the Template "Update Problem" from Day One
+### 1.5 Architectural Decision: Solving the Template "Update Problem" 
 
-Our review of the "GitHub Repository Templates: A Primer" document highlighted the critical "update problem"—the lack of an ongoing link between a template and its generated children.
-
-- **Rationale:** Relying on manual, error-prone Git commands is not a scalable solution. Therefore, our plan mandates solving this from the start. As part of **Phase 0**, the `template-*` repositories **must** include a pre-configured, automated GitHub Actions workflow (e.g., using `actions-template-sync`). This "self-updating" pattern ensures every component in our ecosystem is born with the capability to receive future improvements, transforming lifecycle management from a manual burden into a governed, automated process.
+Usage of "GitHub Repository Templates" upon review introduces a critical "update problem"—the lack of an ongoing link between a template and its generated children. A solution is proposed, but it's problematic. For now we're not creating templates.
 
 ### 1.6 Architectural Decision: Naming Conventions and Abstractions
 
-During our discussion, we clarified and confirmed our naming conventions to maintain architectural clarity.
+We clarified and confirmed our naming conventions to maintain architectural clarity. **(TODO: update the tome)**
 
 - **Rationale:**
   - We will retain the name `federated-graph-core` because it precisely describes its function as the engine that enables federation.
@@ -80,7 +78,7 @@ During our discussion, we clarified and confirmed our naming conventions to main
 
 ### 1.7 Architectural Decision: GraphQL Mesh for Supergraph Composition
 
-The Tome v8.4 describes the "Render, Commit, Run" workflow, where a `supergraph.graphql` artifact is generated and committed to source control. The plan executes this using the `npx @graphql-mesh/compose-cli` tool.
+The Tome v8.4 describes the "Render, Commit, Run" workflow, where a `supergraph.graphql` artifact is generated and committed to source control. The plan executes this using the `npx @graphql-mesh/compose-cli` tool. More info: <https://the-guild.dev/graphql/mesh/v1/consume-in-other-gateways>
 
 - **Rationale:** This is a deliberate architectural choice. While other tools (including services within the Hive platform) can perform composition, using the standalone GraphQL Mesh CLI offers key advantages for our CI/CD and developer workflow:
     1. **It is a lightweight, stateless build tool.** It requires no running services, databases, or external state, making it perfect for fast, ephemeral CI jobs.
