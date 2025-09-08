@@ -421,27 +421,6 @@ of a service in the `subgraph-software-supply-chain` project simply by using its
 service name, as defined in its `compose.yaml`. This is the fundamental
 mechanism that enables federation.
 
-**Figure 4.1: Inter-Project Communication via a Shared Network**
-
-```mermaid
-graph TD
-    subgraph "Docker Host"
-        SharedNet[("Shared External Network: graphtastic_net")]
-
-        subgraph "Project: federated-graph-core"
-            Gateway[Hive Gateway]
-        end
-
-        subgraph "Project: subgraph-software-supply-chain"
-            Dgraph[Dgraph Alpha Service]
-        end
-
-        Gateway -- Attaches to --> SharedNet
-        Dgraph -- Attaches to --> SharedNet
-        Gateway -- "Resolves DNS for 'dgraph-alpha-service'" --- Dgraph
-    end
-```
-
 ### 4.3 The Federation Entrypoint & Core Services (`federated-graph-core`)
 
 This special-purpose Spoke provides the essential, non-optional machinery
