@@ -77,23 +77,31 @@ graph LR
 
 All development within the Graphtastic ecosystem must adhere to the following principles. These precepts are designed to maintain the architectural integrity of the platform, ensuring it remains scalable, maintainable, and resilient.
 
-1.  **Hubs Assemble, Spokes Provide:** Hubs contain no business logic. Spokes are the single source of truth for a business capability.
-2.  **Core Services Are Agnostic:** Core components (`federated-graph-core`, `tools-*`) must never depend on a specific business-domain subgraph. This ensures they remain generic and reusable.
-3.  **Subgraphs Are Standalone:** Every Spoke must be runnable in isolation via its own `compose.yaml`. This is a critical requirement for independent development and testing.
-4.  **Communicate Through the Supergraph:** Subgraphs must not communicate directly with each other over the network. Composition is achieved *only* through GraphQL Federation.
-5.  **Version with Intent:** Production releases must pin dependencies to specific, immutable version tags.
+1. **Hubs Assemble, Spokes Provide:** Hubs contain no business logic. Spokes are the single source of truth for a business capability.
+2. **Core Services Are Agnostic:** Core components (`federated-graph-core`, `tools-*`) must never depend on a specific business-domain subgraph. This ensures they remain generic and reusable.
+3. **Subgraphs Are Standalone:** Every Spoke must be runnable in isolation via its own `compose.yaml`. This is a critical requirement for independent development and testing.
+4. **Communicate Through the Supergraph:** Subgraphs must not communicate directly with each other over the network. Composition is achieved *only* through GraphQL Federation.
+5. **Version with Intent:** Production releases must pin dependencies to specific, immutable version tags.
 
 ## The Developer Workflow: "Render, Commit, Run"
 
 The platform is designed around a declarative, Git-based workflow. The composition of the supergraph is a build-time step that produces a version-controlled artifact.
 
-1.  **Declare:** A Hub's `graphtastic.deps.yml` manifest declares all required Spoke dependencies and their versions.
-2.  **Render:** An orchestration tool (`npx @graphql-mesh/compose-cli`) introspects the schemas of all dependent Spokes and composes them into a single `supergraph.graphql` artifact.
-3.  **Commit:** This generated supergraph artifact is committed directly to the Hub's Git repository. It is a declarative build product, not a runtime variable.
-4.  **Run:** At runtime, the Hive Gateway is configured to load the static, committed `supergraph.graphql` file, ensuring the running system is an exact representation of the version-controlled code.
+1. **Declare:** A Hub's `graphtastic.deps.yml` manifest declares all required Spoke dependencies and their versions.
+2. **Render:** An orchestration tool (`npx @graphql-mesh/compose-cli`) introspects the schemas of all dependent Spokes and composes them into a single `supergraph.graphql` artifact.
+3. **Commit:** This generated supergraph artifact is committed directly to the Hub's Git repository. It is a declarative build product, not a runtime variable.
+4. **Run:** At runtime, the Hive Gateway is configured to load the static, committed `supergraph.graphql` file, ensuring the running system is an exact representation of the version-controlled code.
 
 ## Getting Started
 
 To understand the complete architectural vision and detailed rationale behind these patterns, please refer to the primary architectural document:
 
-*   **[The Graphtastic Platform Tome](./docs/design/tome--graphtastic-platform-docker-compose.md#)**
+* **[The Graphtastic Platform Tome](./docs/design/tome--graphtastic-platform-docker-compose.md#)**
+
+## Licensing
+
+This project is dual-licensed to enable broad code adoption while ensuring our documentation and knowledge base remain open for the community. Project copyright and contributor attribution are managed in our [`NOTICE`](./NOTICE) and [`CONTRIBUTORS.md`](./CONTRIBUTORS.md) files.
+
+* **Code is licensed under [Apache 2.0](https.www.apache.org/licenses/LICENSE-2.0).** This permissive license allows free use in both open-source and commercial products. The full license text is in [`LICENSE.code`](./LICENSE.code).
+
+* **Documentation is licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).** This requires **Attribution** for our contributors and that derivative works are shared back under the same **ShareAlike** terms. The full license text is in [`LICENSE.docs`](./LICENSE.docs).
