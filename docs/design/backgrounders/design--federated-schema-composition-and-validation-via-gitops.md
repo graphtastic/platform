@@ -195,45 +195,13 @@ This workflow provides two distinct validation gates:
 1.  **Composition Check:** The `mesh-compose` command ensures that the subgraph schemas are compatible and can be federated.
 2.  **Runtime Check:** The ephemeral Hive Gateway confirms that the composed supergraph is not just syntactically correct, but also operationally sound and can be served successfully.
 
-Here's a Mermaid diagram illustrating this CI validation workflow:
-
-```mermaid
-graph TD
-    A[Pull Request Opened/Updated] --> B(Checkout Repository);
-
-    B --> C{Setup Node.js & Install Dependencies};
-    C --> D[Compose Supergraph with Mesh Compose CLI];
-
-    D -- Fails --> F[CI Workflow Failed];
-    D -- Succeeds --> G[Build Hive Gateway Docker Image];
-
-    G --> H[Run Ephemeral Hive Gateway (Docker)];
-    H --> I[Wait for Gateway Startup];
-    I --> J{Perform Gateway Readiness Check (cURL)};
-
-    J -- Fails --> F;
-    J -- Succeeds --> K[Gateway Validated Successfully];
-
-    K --> L[Cleanup Ephemeral Gateway];
-    L --> M[CI Workflow Passed];
-
-    M -- Merge to Main --> N[CD Workflow Triggered];
-    N --> O[Publish Subgraphs to Hive Schema Registry];
-    O --> P[Deploy Production Gateways (using Registry CDN)];
-
-    style A fill:#D4EDDA,stroke:#28A745,stroke-width:2px;
-    style M fill:#D4EDDA,stroke:#28A745,stroke-width:2px;
-    style F fill:#F8D7DA,stroke:#DC3545,stroke-width:2px;
-    style N fill:#CCE5FF,stroke:#007BFF,stroke-width:2px;
-    style O fill:#CCE5FF,stroke:#007BFF,stroke-width:2px;
-    style P fill:#CCE5FF,stroke:#007BFF,stroke-width:2px;
-```
+**TODO: add diagram**
 
 ---
 
 ## IV. The Role of the Schema Registry: From CI Insights to Production Governance
 
-This dehydrated CI workflow is a powerful tool for pull request validation, but it intentionally omits the features that make a Schema Registry essential for managing a production graph. The registry is not just a composition engine; it is a system of record that provides critical governance and operational capabilities. [1]
+This dehydrated CI workflow is a powerful tool for pull request validation, but it intentionally omits the features that make a Schema Registry essential for managing a production graph. The registry is not just a composition engine; it is a system of record that provides critical governance and operational capabilities, including detailed assessments of what elements of the schema are used over time ("code coverage for the composed/supergraph schema). This informs detemining the potential impact of a change to a subgraph's schema on the composed supergraph, including identifying which clients (who's queries are served by the Gateway) would be impacted and/or fail. [1]
 
 ### 4.1 Advanced CI Scenarios: Coverage, Performance, and Load Testing
 
@@ -251,9 +219,9 @@ This approach allows you to quantify the impact of a change before it ever reach
 
 ### 4.2 Production Hydration: Governance and High Availability
 
-After a pull request is merged, a separate Continuous Deployment (CD) workflow is triggered. This workflow "rehydrates" the system by using the **Hive CLI** to execute `hive schema:publish` for any modified subgraphs. [3] This action:
+After a pull request is merged, a separate Continuous Deployment (CD) workflow is triggered. This workflow "rehydrates" the system by using the **Hive CLI** to execute `hive schema:publish` for any modified subgraphs. [2] This action:
 
-*   Pushes the new, validated subgraph schema to the persistent GraphQL Hive Schema Registry. [3]
+*   Pushes the new, validated subgraph schema to the persistent GraphQL Hive Schema Registry. [2]
 *   Creates an immutable, versioned record of the schema change.
 *   Allows the registry to perform its own composition and run checks against historical **production usage data** to detect potential breaking changes that composition validation alone cannot catch. [1]
 *   Updates the supergraph artifact on the high-availability CDN.
@@ -262,8 +230,7 @@ Production and staging instances of the Hive Gateway should be configured to poi
 
 By combining these two approaches, you get the best of both worlds: the speed and isolation of a dehydrated, Git-centric validation process during development, and the safety, governance, and resilience of a fully-managed Schema Registry for your production environments.
 
-#### Works cited
+#### Referenced Materials
 
 1.  Schema Registry | Hive - GraphQL (The Guild), accessed September 2, 2025, [https://the-guild.dev/graphql/hive/docs/schema-registry](https://the-guild.dev/graphql/hive/docs/schema-registry)
-2.  Schema Registry for Confluent Platform, accessed September 2, 2025, [https://docs.confluent.io/platform/current/schema-registry/index.html](https://docs.confluent.io/platform/current/schema-registry/index.html)
-3.  CI/CD and Hive CLI - GraphQL (The Guild), accessed September 2, 2025, [https://the-guild.dev/graphql/hive/docs/other-integrations/ci-cd](https://the-guild.dev/graphql/hive/docs/other-integrations/ci-cd)
+2.  CI/CD and Hive CLI - GraphQL (The Guild), accessed September 2, 2025, [https://the-guild.dev/graphql/hive/docs/other-integrations/ci-cd](https://the-guild.dev/graphql/hive/docs/other-integrations/ci-cd)
