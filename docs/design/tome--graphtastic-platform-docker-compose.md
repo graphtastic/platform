@@ -631,6 +631,8 @@ graph TD
     BeforeState -- "User runs `make deps`" --> AfterState
 ```
 
+**TODO: make this diagram less..."meh"**
+
 ### 5.3 The Iterative "Inner Loop": A Practical Guide
 
 This workflow details how a developer makes a change to a vendored dependency
@@ -747,6 +749,8 @@ federation. Therefore, including them directly in the base schema simplifies the
 component's structure, eliminates build steps (to generate federation schemas
 dynamically or via CI), and makes the schema's contract explicit and
 unambiguous.
+
+**TODO: add links to GraphQL Federation primitives**
 
 ### 6.2 The Dual-Schema Model (For Compatibility)
 
@@ -951,6 +955,8 @@ logs:
  ./$(DEPS_DIR)/tools-docker-compose/scripts/manage-stacks.sh logs $(MANIFEST) $(stack)
 ```
 
+**TODO: introduce variable to Makefile to make `tools-docker-compose` pluggable for future orchestrators such as `tools-kubernetes`**
+
 ### 8.4 A Deeper Look at the Operational Targets
 
 #### Lifecycle Management (`up`, `down`, `clean`, `restart`)
@@ -1030,6 +1036,8 @@ We employ a progressive, environment-aware strategy consistent with 12-Factor
 App principles. It defaults to being secure and requires no initial developer
 configuration.
 
+**TODO:** _We don't (yet) "default to secure" as mentioned above, fix this in a manner that doesn't break "works OOTB" re: **D**eveloper e**X**perience_
+
 1.  **Level 1 (Zero Config - Local Dev):** Services in `compose.yaml` use
     insecure, documented defaults for local development (e.g.,
     `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}`). This allows the stack
@@ -1045,18 +1053,20 @@ configuration.
 
 ### 8.7 Configurable Data Persistence
 
-To optimize the developer experience and provide flexibility, data persistence
-for stateful services is configurable, and adheres to the 12-Factor principle of
-separating backing services. This is managed via an environment variable that
-alters the `volumes` section in `compose.yaml` files.
+To optimize the developer experience and provide flexibility, we opt for a 
+data persistence model for stateful services which is configurable. This is 
+managed via an environment variable that alters the `volumes` section in 
+`compose.yaml` files.
 
--   **Default (Bind Mount):** By default (`PERSISTENCE_MODE=bind`), services
+-   **Default (Bind Mount):** By default (`mode=bind`), services
     mount a local `./data` directory within their project folder (e.g.,
     `./.deps/federated-graph-core/data/postgres`). This makes the data
     transparent and easily accessible for inspection or modification during
     development.
 -   **Optional (Named Volume):** By running `make up mode=volume`, developers can
-    switch to using standard, persistent Docker named volumes.
+    switch to using standard, persistent Docker named volumes. In future
+    implementations (tools-kubernetes) this would map to Persistent Volumes (PV)
+    and Persistent Volume Claims (PVC).
 
 The `make clean` target is configured to intelligently remove either the local
 data directories or the associated named volumes, providing a complete "factory
