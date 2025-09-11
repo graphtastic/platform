@@ -318,7 +318,7 @@ flowchart TD
 ### 3.2 The Developer & Governance Toolkit
 
 In addition to the core runtime components, the Graphtastic platform leverages
-several other tools from The Guild's ecosystem to enhance the developer
+several other tools from The Guild's ecosystem ([the-guild.dev](https://the-guild.dev)) to enhance the developer
 experience and enforce governance.
 
 | Tool                | Role in Graphtastic Platform       | Key Function                                                                                                                                                                                                                         |
