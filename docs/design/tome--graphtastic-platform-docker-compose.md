@@ -406,9 +406,12 @@ without affecting any others.
 ### 4.2 The Shared Communication Bus: The External Network
 
 While the projects are isolated, they must communicate. This is achieved via a
-shared **external Docker network**. Before any service is started, the
-orchestration layer ensures a single bridge network (e.g., `graphtastic_net`)
-exists.
+shared **external Docker network**. Note: `external` in this context refers to
+the docker networking concept that the network is not provisioned as part of
+`compose.yml` instantiation, but rather has a lifecycle managed "external to"
+that docker stack. Before any service is started, the orchestration layer 
+ensures a single bridge network (e.g., `graphtastic_net`) exists, joining new
+stacks to it.
 
 Each `compose.yaml` file for a component that needs to communicate with another
 (like the Hive Gateway or a subgraph) includes a declaration for this network
@@ -419,7 +422,11 @@ This shared network provides a common communication bus with reliable, built-in
 DNS. A container in the `federated-graph-core` project can resolve the hostname
 of a service in the `subgraph-software-supply-chain` project simply by using its
 service name, as defined in its `compose.yaml`. This is the fundamental
-mechanism that enables federation.
+mechanism that enables network communication between the Gateway and Subgraph(s).
+In a production implementation (and future iterations) the Gateway's endpoint 
+would be exposed to clients while the subgraphs would use a separate network. In
+the present implementation these concerns are merged to facilitate rapid
+iteration and accessibility for new contributors.
 
 ### 4.3 The Federation Entrypoint & Core Services (`federated-graph-core`)
 
@@ -453,9 +460,9 @@ the `server`, `schema`, `tokens`, `usage`, `usage-ingestor`, `emails`, and
 The `subgraph-*` projects are the workhorses of the federated graph. At runtime,
 each is a self-contained, independent application stack. Its only architectural
 obligation is to connect its primary GraphQL service endpoint to the shared
-external network, making it discoverable by the Hive Gateway.
+network, making it discoverable by the Hive Gateway.
 
-From the perspective of the runtime architecture, a subgraph is a "black box"
+From the perspective of the runtime architecture, a subgraph is a "closed box"
 that fulfills a schema contract. The Hive Gateway does not know or care if a
 subgraph is backed by a Dgraph database, a custom Node.js service, or GraphQL
 Mesh wrapping a legacy API. It only needs to resolve the service's hostname on
@@ -558,6 +565,10 @@ graph TD
 
     SupergraphGateway -- "Federates with" --> Mesh
 ```
+
+_Note: presently only the single `graphtastic_net` network is implemented._
+
+**TODO: implement spoke-specific internal network pattern**
 
 ---
 
